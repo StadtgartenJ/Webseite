@@ -1,28 +1,41 @@
-# Conversion-Audit (v4, heuristisch)
+# Conversion-Audit (v5, heuristisch)
 
-Ziel: mehr **echte** Wartelisten-Anmeldungen (Double-Opt-in), ohne Vertrauen zu verspielen. Das Audit ist heuristisch, nicht gemessen; Messwerte gibt es erst mit echten Besucherdaten (siehe Hypothesen unten).
+Ziel: mehr **echte** Wartelisten-Anmeldungen (Double-Opt-in), ohne Vertrauen zu verspielen. Das Audit ist heuristisch, nicht gemessen. Messwerte gibt es erst mit echten Besucherdaten (siehe Hypothesen).
+
+## Wichtigste Bremse bleibt außerhalb des Codes
+
+Ohne `NEXT_PUBLIC_WAITLIST_ENDPOINT` nimmt das Formular keine Adressen an (es sagt das offen). Brevo und Cloudflare Worker einrichten und die Variable im Build setzen, siehe `waitlist-worker/README.md` und `docs/release-checklist.md`. **Launch-Voraussetzung.**
 
 ## Befunde und Maßnahmen
 
-| Bereich | Befund | Maßnahme in v4 |
+| Bereich | Befund | Maßnahme in v5 |
 | --- | --- | --- |
-| **Formular funktioniert nicht** | Ohne `WAITLIST_ENDPOINT` nimmt das Formular keine Adressen an (es sagt das offen). Das ist die größte Bremse. | Nicht im Code lösbar: Brevo und Cloudflare Worker einrichten und die Variable setzen (siehe `waitlist-worker/README.md`). **Launch-Voraussetzung.** |
-| Erster Bildschirm (Desktop) | Überschrift, Versprechen, Formular und Produkt sind sofort sichtbar; der Text liegt auf der ruhigen, hellen Wand, das Produkt bleibt frei. | Beibehalten. |
-| Erster Bildschirm (Handy) | Vorher war der Kasten unten angeschnitten, weil die Textfläche über dem Bild lag. | Eigener Handy-Ausschnitt aus der Nahaufnahme: ganzes Produkt mit Stange und Halterungen im Bild. Auf kurzen Handys (360 × 740) ist das Bild flacher, damit der Button im ersten Bildschirm bleibt. Geprüft: Button-Unterkante 836 px bei 844 px (390 px breit), bei 360 × 740 innerhalb des Bildschirms. |
-| CTA-Sprache | Überall „Auf die Warteliste“ | Beibehalten. Kontrast: Wald auf Elfenbein 10,8 : 1, Wald auf Lime 9,1 : 1. |
-| Formular-Reibung | Ein Feld, sichtbares Label, 64 px hoch, Honeypot statt Captcha | Beibehalten. |
-| Zustände | Leer, ungültig, „Fast geschafft!“ (nur nach Serverbestätigung), „Schon dabei“, allgemeiner Fehler | Erneut getestet, siehe Testprotokoll. |
-| Glaubwürdigkeit Technik | Der 3D-Erkunder wirkte künstlich (Pflanzen, Licht) und schwächte das hochwertige Bild der Fotos. | Ersetzt durch vier hochwertige Konzeptbilder mit kurzen Erklärungen. Der Hinweis „Konzeptionelle Darstellung · Produkt in Entwicklung“ bleibt sichtbar. |
-| Ladezeit | Der Erkunder brachte three.js, React Three Fiber und GSAP mit. | Entfällt. Erstladung JS 160 → 108 kB laut Build. |
-| Vertrauen | Entwicklungshinweis im Hero, im Technik-Bild und im Footer; Datenschutz-Link am Formular. | Beibehalten. **Impressum und Datenschutz enthalten noch Platzhalter → Launch-Voraussetzung.** |
-| Aussagen | Keine Preise, Termine, Tage ohne Gießen, Sicherheitsversprechen. „Soll“ und „geplant“ bei allen ungeprüften Funktionen. | Beibehalten. Formulierungen aus dem Storyboard wie „Speicher für mehrere Tage“ bewusst nicht übernommen. |
+| Erster Bildschirm | Überschrift, Unterzeile, Formular und Produktfoto sofort sichtbar; Hinweis „In Entwicklung.“ mit Apricot-Statuspunkt direkt am Formular | Pflichttexte aus dem Briefing übernommen. Handy 390 × 844: Button vollständig im ersten Bildschirm. |
+| Ein CTA-Text | überall „Auf die Warteliste“ | beibehalten (Hero, Reveal, Vorteile, Abschluss, Kopfzeile, Handy-Leiste) |
+| Handy-Leiste | erschien in v5 zunächst auch über dem 3D-Viewer und konnte dessen Ansichtsknöpfe verdecken | Viewer wieder als „ruhige Zone“ markiert; geprüft: Leiste nur in Vorteilen, nie bei Hero, Viewer, Formular |
+| Datenschutzneutrale Antwort | v4 sagte „Schon dabei“, wenn eine Adresse bekannt war. Damit konnte jeder prüfen, ob jemand eingetragen ist. | Worker antwortet für neue und bekannte Adressen gleich (`pending`). Text: „Ist deine Adresse neu, findest du dort einen Link zur Bestätigung. Erst danach bist du auf der Warteliste.“ Kein vorgetäuschter Erfolg: „Fast geschafft!“ erscheint nur nach Serverantwort. |
+| Fehlerzustände | leer, ungültig, Rate-Limit, Server weg | getestet mit Mock-Endpunkt: Meldung am Feld bzw. allgemeiner Fehler, Fokus im Feld |
+| Glaubwürdigkeit Technik | v4 ersetzte den künstlich wirkenden 3D-Erkunder durch Bilder | v5: neues Blender-Mastermodell als interaktiver Viewer mit vier Ansichten; Hinweis „Konzeptionelle Darstellung · Produkt in Entwicklung“ immer sichtbar. Das Modell ist erkennbar dasselbe Produkt, aber nicht fotoreal (siehe `docs/3d-rendering-report.md`). |
+| Ladezeit | 3D bringt three.js mit | lädt erst in der Nähe des Abschnitts; davor ein Standbild an derselben Stelle. Erstladung JS laut Build 111 kB (gzip), 3D-Teil zusätzlich ca. 190 kB JS (gzip) + 521 KB Modell. |
+| Ausfallsicherheit | Wenn das Modell nicht lud, stürzte die ganze Seite ab | Fehlergrenze: Bild mit Hinweis, Rest der Seite bleibt bedienbar |
+| Aussagen | keine Preise, Termine, Tage ohne Gießen, Sicherheits-, Schimmel- oder Nachhaltigkeitsversprechen, keine Zahl der Anmeldungen, keine Testimonials | geprüft im gesamten Seitentext. Ungeprüfte Funktionen mit „soll“, „geplant“, „Konzept“. |
+| Vertrauen | Entwicklungshinweis im Hero, im Viewer und im Footer; Datenschutz-Link am Formular | beibehalten. **Impressum und Datenschutz enthalten noch Platzhalter → Launch-Voraussetzung.** |
+
+## Gemessen (lokal, statischer Export)
+
+| Messung | Desktop 1440 | Handy 390, gedrosselt (4× CPU, 1,6 Mbit/s) |
+| --- | --- | --- |
+| LCP | 0,2 s | 2,4 s (Hero-Bild) |
+| CLS (Laden + ganz durchscrollen) | 0 | 0 |
+| horizontales Scrollen | keins bei 1440, 1280, 1024, 768, 390, 360 | |
+
+Lokale Messung ohne CDN; auf GitHub Pages mit echter Leitung **ungeprüft**.
 
 ## Hypothesen für spätere A/B-Tests
 
-Erst sinnvoll, wenn die Warteliste läuft und eine datensparsame Messung vorhanden ist (z. B. serverseitige Zählung der Anmeldungen je Variante, ohne Cookies).
+Erst sinnvoll, wenn die Warteliste läuft und eine datensparsame Messung vorhanden ist (z. B. serverseitige Zählung je Variante, ohne Cookies).
 
-1. **Hero-Bild:** Nahaufnahme ohne Fenster (Produkt größer) gegen das Fensterbild mit Abendlicht. Erwartung: Die Nahaufnahme erklärt das Produkt schneller, das Fensterbild verkauft das Gefühl besser.
-2. **Vertrauen am Hero-Formular:** Der Zusatz „Nur Updates zum Produkt. Jederzeit abmeldbar.“ direkt unter dem Button (heute nur am Abschlussformular).
-3. **Mehrwert der Anmeldung:** Ein echtes, einlösbares Versprechen wie „Du erfährst Preis und Starttermin vor allen anderen.“ – nur, wenn es so kommt.
-4. **Abschluss mit Produktbild:** Das Abschlussformular neben einem Produktbild statt auf reinem Grün.
-5. **Technik-Abschnitt kürzer:** drei statt vier Stationen (ohne Montage, die schon bei den Vorteilen vorkommt).
+1. **Viewer-Position:** 3D-Viewer direkt nach dem Reveal statt nach den Vorteilen. Erwartung: Technikinteressierte bleiben länger, aber der emotionale Teil wird kürzer.
+2. **Mehrwert der Anmeldung:** ein echtes Versprechen wie „Du erfährst Preis und Starttermin vor allen anderen.“ – nur, wenn es so kommt.
+3. **Viewer-Einstieg:** Start in „Innenleben“ statt „Produkt“ (das Produkt ist oben schon als Foto zu sehen).
+4. **Abschlussbild:** Produktfoto neben dem Formular gegen reine Farbfläche.

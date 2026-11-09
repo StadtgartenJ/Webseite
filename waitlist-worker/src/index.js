@@ -7,8 +7,10 @@
  * Server und taucht nie im Browser auf.
  *
  * Antworten an die Website:
- *   200 { status: "pending" }   Bestätigungsmail wurde verschickt
- *   200 { status: "already" }   Adresse steht bereits auf der Liste
+ *   200 { status: "pending" }   Anfrage angenommen. Für neue oder unbestätigte Adressen hat Brevo
+ *                               die Bestätigungsmail verschickt. Bereits bestätigte Adressen bekommen
+ *                               dieselbe Antwort (und keine zweite Mail) – so verrät die Website nicht,
+ *                               wer schon eingetragen ist.
  *   422 { error: "invalid" }    Adresse ungültig
  *   429 { error: "rate_limited" }
  *   503 { error: "not_configured" } / 502 { error: "upstream" }
@@ -75,12 +77,12 @@ export default {
 
     const headers = { "api-key": env.BREVO_API_KEY, Accept: "application/json" };
 
-    // Schon auf der Liste? Dann keine zweite Mail, sondern ein klarer Hinweis.
+    // Schon bestätigt auf der Liste? Dann keine zweite Mail – aber dieselbe neutrale Antwort.
     const existing = await fetch(`https://api.brevo.com/v3/contacts/${encodeURIComponent(email)}`, { headers });
     if (existing.ok) {
       const contact = await existing.json().catch(() => ({}));
       const lists = Array.isArray(contact.listIds) ? contact.listIds : [];
-      if (lists.includes(Number(env.BREVO_LIST_ID))) return json(200, { status: "already" }, cors);
+      if (lists.includes(Number(env.BREVO_LIST_ID))) return json(200, { status: "pending" }, cors);
     }
 
     const res = await fetch(BREVO_DOI_URL, {
@@ -98,9 +100,9 @@ export default {
 
     const err = await res.json().catch(() => ({}));
     const text = JSON.stringify(err).toLowerCase();
-    // Bereits eingetragen oder Bestätigung ausstehend
+    // Bereits eingetragen oder Bestätigung ausstehend: dieselbe neutrale Antwort
     if (res.status === 400 && (text.includes("duplicate") || text.includes("already"))) {
-      return json(200, { status: "already" }, cors);
+      return json(200, { status: "pending" }, cors);
     }
     if (res.status === 400 && text.includes("email")) return json(422, { error: "invalid" }, cors);
     console.error("Brevo-Fehler", res.status, err && err.code);

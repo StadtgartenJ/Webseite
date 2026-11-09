@@ -21,7 +21,6 @@ type State =
   | { kind: "idle" }
   | { kind: "submitting" }
   | { kind: "pending" }
-  | { kind: "already" }
   | { kind: "error"; reason: ErrorReason };
 
 export function WaitlistForm({
@@ -54,7 +53,7 @@ export function WaitlistForm({
   }, []);
 
   useEffect(() => {
-    if (state.kind === "pending" || state.kind === "already") doneRef.current?.focus();
+    if (state.kind === "pending") doneRef.current?.focus();
     if (state.kind === "error" && (state.reason === "empty" || state.reason === "invalid")) inputRef.current?.focus();
   }, [state]);
 
@@ -68,8 +67,8 @@ export function WaitlistForm({
     const company = (new FormData(e.currentTarget).get("company") as string) || "";
     setState({ kind: "submitting" });
     const result = await joinWaitlist({ email: value, company, elapsedMs: performance.now() - shownAt.current });
-    if (result.status === "pending") setState({ kind: "pending" });
-    else if (result.status === "already") setState({ kind: "already" });
+    // „already“ wird bewusst genauso beantwortet: Die Seite verrät nicht, wer schon eingetragen ist.
+    if (result.status === "pending" || result.status === "already") setState({ kind: "pending" });
     else setState({ kind: "error", reason: result.reason });
   }
 
@@ -83,21 +82,10 @@ export function WaitlistForm({
           </svg>
         </span>
         <p className="wl-done__title">Fast geschafft!</p>
-        <p className="wl-done__text">Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir geschickt haben.</p>
-      </div>
-    );
-  }
-
-  if (state.kind === "already") {
-    return (
-      <div className={`wl wl--${tone} wl--${size} wl-done wl-done--info`} role="status" tabIndex={-1} ref={doneRef}>
-        <span className="wl-done__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 11v5.5M12 7.5v.01" />
-          </svg>
-        </span>
-        <p className="wl-done__title">Schon dabei</p>
-        <p className="wl-done__text">Diese E-Mail-Adresse ist bereits eingetragen oder wartet noch auf Bestätigung.</p>
+        <p className="wl-done__text">
+          Schau in dein Postfach: Ist deine Adresse neu, findest du dort einen Link zur Bestätigung. Erst danach bist du
+          auf der Warteliste.
+        </p>
       </div>
     );
   }

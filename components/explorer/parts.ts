@@ -120,7 +120,7 @@ export const MODES: { id: Mode; label: string; title: string; text: string[] }[]
     label: "Innenleben",
     title: "Das Innenleben",
     text: [
-      "Zieh einzelne Teile heraus oder nutze den Regler. So siehst du, wie Einsatz, Reservoir und Kapillarelemente zusammenspielen.",
+      "Zieh einzelne Teile heraus oder nutze den Regler. So siehst du, wie Einsatz, Trennplatte, Kapillarelemente und Reservoir zusammenspielen.",
     ],
   },
   {
@@ -128,7 +128,7 @@ export const MODES: { id: Mode; label: string; title: string; text: string[] }[]
     label: "Wasserweg",
     title: "Der Weg des Wassers",
     text: [
-      "Unten liegt das Reservoir. Kapillarelemente sollen das Wasser nach oben ins Substrat leiten, sobald die Erde trockener wird.",
+      "Unten liegt das Reservoir. Kapillarelemente sollen das Wasser von dort nach oben ins Substrat leiten.",
       "Wie gut das im Alltag funktioniert, hängt auch von Erde, Pflanzen und Standort ab. Genau das testen wir gerade.",
     ],
   },
@@ -137,7 +137,7 @@ export const MODES: { id: Mode; label: string; title: string; text: string[] }[]
     label: "Montage",
     title: "Einspannen statt bohren",
     text: [
-      "Eine Spannstange klemmt zwischen den Seiten der Fensterlaibung, zwei Halterungen tragen den Kasten.",
+      "Eine Spannstange klemmt zwischen den Seiten der Fensterlaibung, zwei breite Halterungen tragen den Kasten. Die Pflanzen treten dafür kurz zurück.",
       "Ob dein Fenster geeignet ist, hängt von Breite, Material und Zustand der Laibung ab.",
     ],
   },

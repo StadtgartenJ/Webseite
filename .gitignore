@@ -21,3 +21,8 @@ waitlist-worker/.wrangler/
 .DS_Store
 Thumbs.db
 shots/
+
+# 3D: erzeugte Texturen und Zwischenstände (scripts/build-model.sh baut sie neu)
+blender/tex/
+renders/
+public/models/*-raw.glb

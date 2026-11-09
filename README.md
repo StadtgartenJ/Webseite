@@ -18,29 +18,24 @@ npx serve out        # Export ansehen
 
 Für ein funktionierendes Formular lokal: `.env.example` nach `.env.local` kopieren und `NEXT_PUBLIC_WAITLIST_ENDPOINT` setzen. Ohne den Wert meldet das Formular offen „Die Warteliste öffnet in Kürze“ und nimmt keine Adressen an.
 
-## Seitenaufbau und Text
-
-Die Reihenfolge folgt der Positionierung: Gefühl → Alltag → Funktion → Technik → Einladung.
+## Seitenaufbau und Text (v5 „Botanical Premium“)
 
 | Abschnitt | Grund | Überschrift | Inhalt |
 | --- | --- | --- | --- |
-| Hero | Foto (Goldene Stunde) | „Dein Fenster. Dein Garten.“ | Versprechen „Mehr Grün für dein Zuhause – auch ohne Balkon.“, Formular direkt im Hero, Hinweis „In Entwicklung.“ |
-| Reveal | Moos, Studiolicht | „Ein kleines Stück Natur. Mitten in der Stadt.“ | freigestelltes Produkt größer als der Text, zweite CTA |
-| Vorteile | Elfenbein | „Kleine Idee. Großer Unterschied.“ | drei asymmetrische Kompositionen: Fenster mit Pflanzen · Klemm-Detail · Schnittbild mit Sichtfenster-Ausschnitt und CTA |
-| Technik | Botanik-Hellgrün | „Schön durchdacht. Bis ins Innere.“ | Bildgeschichte in vier Stationen (Produkt · Innenleben · Wasserweg · Montage): auf dem Desktop eine stehende Bühne mit Überblendung, auf dem Handy Bild und Text je Station |
-| Alltag | Fassade vollflächig | „Die Stadt ist grau genug.“ | ruhige Textkarte über dem Foto |
-| Warteliste | Waldgrün | „Bald wächst hier etwas.“ | Formular, „Nur Updates zum Produkt. Jederzeit abmeldbar.“ |
+| Hero | Foto, Warm Cream | „Dein Fenster. Dein Garten.“ | „Mehr Grün zu Hause. Auch ohne Balkon.“, Formular direkt im Hero, „In Entwicklung. Kostenlos und unverbindlich vormerken.“ |
+| Reveal | Moos, Studiolicht | „Ein bisschen Natur. Mitten in der Stadt.“ | freigestelltes Produkt, zweite CTA |
+| Vorteile | Warm Cream | „Mehr Grün. Weniger Aufwand.“ | drei Kompositionen: Garten am Fenster · Einspannen statt bohren · Weniger gießen |
+| Technik | Soft Sage | „Schön von außen. Durchdacht von innen.“ | interaktiver 3D-Viewer: Produkt · Innenleben · Wasserweg · Montage |
+| Alltag | Fassade vollflächig | „Mach Platz für mehr Grün.“ | ruhige Textkarte über dem Foto |
+| Warteliste | Forest | „Hier wächst etwas Neues.“ | Produktfoto, Formular, „Kostenlos und unverbindlich. Nur Produktupdates. Jederzeit abmeldbar.“ |
 
-**CTA-System:** überall derselbe Text „Auf die Warteliste“ (Hero, Reveal, Vorteile, Abschluss, Kopfzeile am Desktop, Handy-Leiste). Jeder CTA-Link setzt den Cursor direkt ins nächste E-Mail-Feld. Die Handy-Leiste unten erscheint nur, wenn gerade kein anderer CTA und kein Formular im Bild ist. Keine Pop-ups.
+**CTA-System:** überall „Auf die Warteliste“. Jeder CTA-Link setzt den Cursor ins nächste E-Mail-Feld. Die Handy-Leiste erscheint nur, wenn kein anderer CTA, kein Formular und nicht der 3D-Viewer im Bild ist.
 
-**Formularzustände:** Leer und ungültig (am Feld), „Fast geschafft!“ (nur wenn der Server bestätigt, dass die Bestätigungsmail rausging), „Schon dabei“ (Adresse bereits eingetragen oder unbestätigt), ein allgemeiner Fehlertext für alles andere. Ohne konfigurierten Endpunkt sagt das Formular offen, dass die Warteliste noch keine Adressen annimmt.
+**Formularzustände:** Leer und ungültig (am Feld), „Fast geschafft!“ nur nach Serverantwort, allgemeiner Fehler für alles andere. Neue und bereits bekannte Adressen bekommen **dieselbe** Antwort (der Worker verrät nicht, wer eingetragen ist). Ohne konfigurierten Endpunkt sagt das Formular offen, dass die Warteliste noch keine Adressen annimmt.
 
 ## Designsystem
 
-- **Farben:** Wald `#173F35`, Moos `#56663F`, Botanik `#C5DBAC` / hell `#E2EBD3`, Elfenbein `#F7F6EF`, Lime `#DCEB91` (Akzent und CTA auf Grün), Tinte `#202522`. Alle Tokens oben in `app/globals.css`.
-- **Schrift:** Bricolage Grotesque (Überschriften, optische Größe 56, normale Breite, Gewicht 560) und Figtree (Text, Fließtext ab 17 px). Beide selbst gehostet, SIL OFL. Überschriften brechen nach Sinnzeilen (`.l`-Spans mit `text-wrap: balance`).
-- **Formmotiv:** die Kapsel des Produkts. Pill-Buttons mit einem „Füllstand“-Punkt, der beim Hover steigt; Abschnitte mit kapselförmig gerundeten Kanten.
-- **Bewegung:** ein Auftritt beim Laden (Bild setzt sich, Zeilen steigen aus einer Maske), das schwebende Produkt im Reveal und die Überblendung der Technik-Bühne. Unter `prefers-reduced-motion` ist alles statisch.
+Siehe `docs/product-design-system.md`. Kurz: Warm Cream `#FFF9ED` als Hauptgrund, Forest `#173F35`, Lime `#DCEB91`, Soft Sage `#E5EED7`, Apricot `#F0AF76` (nur kleine Wärmeakzente), Ink `#202522`. Schriften Bricolage Grotesque und Figtree, selbst gehostet.
 
 ## Code-Struktur
 
@@ -52,11 +47,13 @@ components/
   WaitlistLink.tsx       einheitlicher CTA „Auf die Warteliste“, fokussiert das nächste E-Mail-Feld
   ScrollFloat.tsx        schwebendes Produkt im Reveal (scrollgekoppelt)
   StickyCta.tsx          Handy-Leiste
-  TechStory.tsx          Technik-Abschnitt als Bildgeschichte
+  TechStory.tsx          v4-Bildgeschichte (nicht mehr eingebunden)
   Picture.tsx            AVIF/WebP mit Art-Direction (eigener Handy-Ausschnitt)
-  explorer/              3D-Konzeptmodell (Szene, Geometrie, Texte, Fallbacks)
-                         (derzeit nicht eingebunden)
-blender/                 Mastermodell als Python-Skript (Cycles)
+  explorer/ProductViewer.tsx  3D-Viewer: Lazy Loading, Standbild, Fallbacks, Bedienung
+  explorer/PlanterScene.tsx   Szene (React Three Fiber), lädt public/models/stadtgarden.glb
+  explorer/ProductExplorer.tsx  v4-Scroll-Film (nicht eingebunden)
+blender/                 Mastermodell (stadtgarden_v5.py) und prozedurale Texturen
+scripts/build-model.sh   Blender → GLB → gltf-transform (Meshopt, WebP)
 lib/waitlist.ts          Client-Adapter zum Wartelisten-Endpunkt
 waitlist-worker/         serverseitiger Endpunkt (Cloudflare Worker)
 assets-src/v2/           Original-Bilder; npm run images erzeugt public/images/
@@ -65,14 +62,17 @@ docs/bilder.md           Bildinventar, fehlende Motive, fertige Prompts
 
 ## Technik-Abschnitt und 3D
 
-- Der Abschnitt nutzt vier Konzeptbilder (`components/TechStory.tsx`). Die Bühne bleibt per CSS `sticky` stehen; welche Station aktiv ist, erkennt ein IntersectionObserver. Kein WebGL, kein Scroll-Hijacking.
-- Der frühere 3D-Erkunder samt Scroll-Film liegt unbenutzt unter `components/explorer/`. Er hat das Qualitätsziel nicht erreicht.
-- Ein reproduzierbares Blender-Mastermodell liegt unter `blender/`. Qualitätstor, Ergebnis und nächste Schritte stehen in `docs/produktvisualisierung.md`.
+- Ein Blender-Mastermodell liefert Cycles-Standbilder und das GLB für den Browser. Pipeline, Qualitätstor und Grenzen: `docs/3d-rendering-report.md`.
+- Der Viewer lädt three.js und das Modell erst in der Nähe des Abschnitts. Davor steht ein Standbild aus dem Viewer an derselben Stelle. Ohne WebGL oder wenn das Modell nicht lädt, erscheint ein Konzeptbild mit Hinweis.
+- Modell neu bauen: `bash scripts/build-model.sh` (braucht `pip install bpy`).
 
 ## Weitere Dokumente
 
 - `docs/deployment-diagnosis.md`: Ursache des 404 auf stadtgarden.de und die nötigen Einstellungen
-- `docs/conversion-audit.md`: Befunde, Maßnahmen, Hypothesen für A/B-Tests
+- `docs/conversion-audit.md`: Befunde, Maßnahmen, Messwerte, Hypothesen für A/B-Tests
+- `docs/release-checklist.md`: alles, was vor dem Start erledigt sein muss
+- `docs/product-design-system.md`: Farben, Schrift, Formen, Bewegung, CTA
+- `docs/3d-rendering-report.md`: 3D-Pipeline, Qualitätstor, Fallbacks
 - `docs/bilder.md`: Bildinventar und Prompts
 
 ## Veröffentlichen (GitHub Pages)

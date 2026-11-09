@@ -5,7 +5,7 @@ import { WaitlistForm } from "@/components/WaitlistForm";
 import { WaitlistLink } from "@/components/WaitlistLink";
 import { ScrollFloat } from "@/components/ScrollFloat";
 import { StickyCta } from "@/components/StickyCta";
-import { TechStory } from "@/components/TechStory";
+import { ProductViewer } from "@/components/explorer/ProductViewer";
 
 const PORTRAIT = { widths: [640, 900, 1122], width: 1122, height: 1402 };
 
@@ -40,11 +40,11 @@ export default function Home() {
             </h1>
             <div className="hero__text">
               <p className="hero__promise">
-                <span className="l">Mehr Grün für dein Zuhause –</span> <span className="l">auch ohne Balkon.</span>
+                <span className="l">Mehr Grün zu Hause.</span> <span className="l">Auch ohne Balkon.</span>
               </p>
               <p className="hero__lead">
-                Entdecke einen Pflanzkasten, der sich ohne Bohren am passenden Fenster befestigen lässt und mit einem
-                durchdachten Bewässerungskonzept das Gießen erleichtern soll.
+                Ein neuer Platz für deine Pflanzen: direkt vor deinem Fenster. Mit minimalistischem Design, einer
+                Montageidee ohne Bohren und einem durchdachten Bewässerungskonzept.
               </p>
             </div>
             <div className="hero__form">
@@ -53,7 +53,8 @@ export default function Home() {
                 inputId="hero-email"
                 note={
                   <>
-                    <strong>In Entwicklung.</strong> Erfahre als Erstes vom Launch.{" "}
+                    <span className="status-dot" aria-hidden="true" />
+                    <strong>In Entwicklung.</strong> Kostenlos und unverbindlich vormerken.{" "}
                     <a className="link" href="/datenschutz/">
                       Datenschutz
                     </a>
@@ -69,11 +70,11 @@ export default function Home() {
           <div className="wrap reveal__grid">
             <div className="reveal__copy">
               <h2 id="reveal-title" className="display-2">
-                <span className="l">Ein kleines Stück Natur.</span> <span className="l">Mitten in der Stadt.</span>
+                <span className="l">Ein bisschen Natur.</span> <span className="l">Mitten in der Stadt.</span>
               </h2>
               <p className="reveal__text">
-                Wenig Platz, große Ideen. Unser Fensterpflanzkasten verbindet zeitloses Design mit einer cleveren
-                Befestigung und einer neuen Art der Pflanzenversorgung. Für alle, die sich ein bisschen mehr Grün wünschen.
+                Nicht jeder hat einen Balkon. Aber fast jedes Zuhause hat ein Fenster. Stadtgarden macht aus diesem Platz
+                etwas Besonderes – mit einem Pflanzkasten, der genauso schön sein soll wie die Pflanzen darin.
               </p>
               <WaitlistLink className="btn btn--lime" inline />
             </div>
@@ -93,7 +94,7 @@ export default function Home() {
         <section id="vorteile" className="benefits" aria-labelledby="benefits-title">
           <div className="wrap">
             <h2 id="benefits-title" className="display-2 benefits__title">
-              <span className="l">Kleine Idee.</span> <span className="l">Großer Unterschied.</span>
+              <span className="l">Mehr Grün.</span> <span className="l">Weniger Aufwand.</span>
             </h2>
 
             <article className="benefit benefit--garden">
@@ -108,7 +109,7 @@ export default function Home() {
               </div>
               <div className="benefit__copy">
                 <h3>Dein Garten beginnt am Fenster.</h3>
-                <p>Kein Balkon? Kein Problem. Nutze den Platz vor deinem Fenster für etwas, das wächst.</p>
+                <p>Ob Kräuter, Blumen oder hängendes Grün: Dein Fenster bekommt einen ganz neuen Platz für Pflanzen.</p>
               </div>
             </article>
 
@@ -116,7 +117,8 @@ export default function Home() {
               <div className="benefit__copy">
                 <h3>Einspannen statt bohren.</h3>
                 <p>
-                  Ein dezentes Klemmsystem soll die Montage an geeigneten Fenstern ermöglichen – ohne Löcher in der Fassade.
+                  Eine dezente Spannstange mit zwei Halterungen soll die Montage an geeigneten Fenstern ermöglichen – ganz
+                  ohne Bohrlöcher.
                 </p>
               </div>
               <div className="benefit__media">
@@ -152,7 +154,7 @@ export default function Home() {
               <div className="benefit__copy">
                 <h3>Weniger gießen. Mehr genießen.</h3>
                 <p>
-                  Ein integriertes Wasserreservoir mit geplanter Kapillarbewässerung soll deine Pflanzen länger mit
+                  Ein integriertes Wasserreservoir und die geplante Kapillarbewässerung sollen deine Pflanzen länger mit
                   Feuchtigkeit versorgen.
                 </p>
                 <WaitlistLink className="btn btn--forest" inline />
@@ -166,14 +168,14 @@ export default function Home() {
           <div className="wrap">
             <div className="inside__head">
               <h2 id="inside-title" className="display-2">
-                <span className="l">Schön durchdacht.</span> <span className="l">Bis ins Innere.</span>
+                <span className="l">Schön von außen.</span> <span className="l">Durchdacht von innen.</span>
               </h2>
               <p>
-                Außen eine klare Form. Innen ein durchdachtes Konzept: Ein Wasserreservoir und Kapillarelemente sollen
-                Feuchtigkeit dorthin bringen, wo die Wurzeln sie brauchen.
+                Hinter der klaren Form steckt eine einfache Idee: Wasser speichern und über Kapillarelemente zu den Wurzeln
+                leiten. Entdecke, wie unser Konzept aufgebaut ist.
               </p>
             </div>
-            <TechStory />
+            <ProductViewer />
           </div>
         </section>
 
@@ -193,43 +195,51 @@ export default function Home() {
           <div className="wrap city__wrap">
             <div className="city__panel">
               <h2 id="city-title" className="display-2">
-                Die Stadt ist
-                <br />
-                grau genug.
+                <span className="l">Mach Platz</span> <span className="l">für mehr Grün.</span>
               </h2>
               <p>Ein bisschen Grün verändert den Blick nach draußen. Und vielleicht auch das Gefühl drinnen.</p>
             </div>
           </div>
         </section>
 
-        {/* 06 · Warteliste */}
+        {/* 06 · Warteliste: das Ziel der Seite */}
         <section id="warteliste" className="final" aria-labelledby="final-title">
           <div className="wrap final__grid">
+            <figure className="final__media">
+              <Picture
+                name="produkt-gruen"
+                widths={[800, 1200, 1536]}
+                width={1536}
+                height={1024}
+                sizes="(min-width: 1024px) 42vw, 100vw"
+                alt="Der weiße Pflanzkasten mit Efeutute und Pfennigkraut an einem Fenster mit dunkelgrüner Fassade"
+                className="final__img"
+              />
+            </figure>
             <div className="final__copy">
               <h2 id="final-title" className="display-1 final__title">
-                Bald wächst
-                <br />
-                hier etwas.
+                <span className="l">Hier wächst</span> <span className="l">etwas Neues.</span>
               </h2>
+              <p className="final__sub">Sei dabei, wenn Stadtgarden startet.</p>
               <p className="final__text">
                 Wir entwickeln einen neuen Platz für deine Pflanzen. Trag dich ein und erfahre als Erstes, wenn es
-                Neuigkeiten zum Launch gibt.
+                Neuigkeiten gibt.
               </p>
-            </div>
-            <div className="final__form">
-              <WaitlistForm
-                tone="dark"
-                size="lg"
-                inputId="waitlist-email"
-                note={
-                  <>
-                    Nur Updates zum Produkt. Jederzeit abmeldbar.{" "}
-                    <a className="link" href="/datenschutz/">
-                      Datenschutz
-                    </a>
-                  </>
-                }
-              />
+              <div className="final__form">
+                <WaitlistForm
+                  tone="dark"
+                  size="lg"
+                  inputId="waitlist-email"
+                  note={
+                    <>
+                      Kostenlos und unverbindlich. Nur Produktupdates. Jederzeit abmeldbar.{" "}
+                      <a className="link" href="/datenschutz/">
+                        Datenschutz
+                      </a>
+                    </>
+                  }
+                />
+              </div>
             </div>
           </div>
         </section>

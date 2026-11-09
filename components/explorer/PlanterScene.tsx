@@ -11,31 +11,16 @@
  *   manual – Tabs, Regler, Ziehen und Drehen wie bisher.
  * Nur die Bauteil-Gruppen selbst schreiben ihre Transformationen (eine Quelle je Objekt).
  */
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { ContactShadows, Environment, Html, Lightformer, OrbitControls } from "@react-three/drei";
+import { ContactShadows, Environment, Html, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
 type OrbitControlsImpl = THREE.EventDispatcher<{ start: object; end: object; change: object }> & {
   enabled: boolean;
   target: THREE.Vector3;
   update: () => void;
 };
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import {
-  DIM,
-  MODEL_Y,
-  closedBody,
-  flatPlate,
-  roundedRectShape,
-  holeTexture,
-  leafGeometry,
-  openVessel,
-  rng,
-  smallLeafGeometry,
-  soilBlock,
-  strapGeometry,
-  weaveTexture,
-} from "./geometry";
+import { DIM, MODEL_Y, rng } from "./geometry";
 import { PART_BY_ID, type Mode, type PartId } from "./parts";
 import { PARKED, TAG_ORDER, type FilmState, type FilmTagId } from "./film";
 
@@ -103,7 +88,7 @@ const PRESETS: Record<Mode, { pos: [number, number, number]; target: [number, nu
   explosion: { pos: [3.9, 2.0, 7.8], target: [0, 0.3, 0] },
   wasser: { pos: [0.9, 0.7, 4.5], target: [0, 0.1, 0] },
   schnitt: { pos: [1.7, 1.05, 4.8], target: [0, 0.12, 0] },
-  montage: { pos: [1.1, 0.9, 6.6], target: [0, 0.15, 0] },
+  montage: { pos: [1.5, 2.3, 6.3], target: [0, 0.25, 0] },
 };
 const MIN_DIST = 2.8;
 const MAX_DIST = 10;
@@ -118,7 +103,7 @@ const SceneCtx = createContext<Ctx | null>(null);
 const useScene = () => useContext(SceneCtx)!;
 
 function damp(current: number, target: number, lambda: number, dt: number) {
-  return THREE.MathUtils.damp(current, target, lambda, Math.min(dt, 1 / 20));
+  return THREE.MathUtils.damp(current, target, lambda, Math.min(dt, 1 / 10));
 }
 
 /** Weich gedämpfte Zahl: ease-out ohne festes Ende, jederzeit unterbrechbar. */
@@ -140,66 +125,97 @@ function useDamped(target: number, lambda: number, reduced: boolean) {
   return v;
 }
 
-// ── Materialien ───────────────────────────────────────────────────────────
-function useMaterials() {
-  const { clip } = useScene();
-  return useMemo(() => {
-    const clipping = [clip];
-    const plastic = new THREE.MeshPhysicalMaterial({
-      color: "#fbfaf6",
-      roughness: 0.4,
-      clearcoat: 0.35,
-      clearcoatRoughness: 0.45,
-      side: THREE.DoubleSide,
-      clippingPlanes: clipping,
-    });
-    // eigene Instanz für die Schale: im Film bleibt sie ganz, nur die Tabs schneiden sie
-    const shell = plastic.clone();
-    const insert = new THREE.MeshStandardMaterial({ color: "#2b2e2a", roughness: 0.72, side: THREE.DoubleSide, clippingPlanes: clipping });
-    const soil = new THREE.MeshStandardMaterial({ color: "#3a2c22", roughness: 1, side: THREE.DoubleSide, clippingPlanes: clipping });
-    const reservoir = new THREE.MeshPhysicalMaterial({
-      color: "#d9ecf2",
-      roughness: 0.08,
-      clearcoat: 1,
-      transparent: true,
-      opacity: 0.3,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      clippingPlanes: clipping,
-    });
-    const water = new THREE.MeshPhysicalMaterial({
-      color: "#69a9c6",
-      roughness: 0.05,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      clippingPlanes: clipping,
-    });
-    const holes = holeTexture();
-    const plate = new THREE.MeshStandardMaterial({
-      color: "#dedcd4",
-      roughness: 0.6,
-      alphaMap: holes,
-      alphaTest: 0.5,
-      side: THREE.DoubleSide,
-      clippingPlanes: clipping,
-    });
-    const wick = new THREE.MeshStandardMaterial({ color: "#ffffff", map: weaveTexture(), roughness: 1, clippingPlanes: clipping });
-    const rubber = new THREE.MeshStandardMaterial({ color: "#e4e1d9", roughness: 0.85 });
-    const rod = new THREE.MeshPhysicalMaterial({ color: "#f4f2ed", roughness: 0.25, clearcoat: 0.6, clearcoatRoughness: 0.3 });
-    const gauge = new THREE.MeshStandardMaterial({ color: "#dedbd3", roughness: 0.5, clippingPlanes: clipping });
-    const gaugeWater = new THREE.MeshStandardMaterial({ color: "#7db4cc", roughness: 0.3, emissive: "#2e6f8c", emissiveIntensity: 0.15, clippingPlanes: clipping });
-    gaugeWater.userData.keepEmissive = true;
-    const hole = new THREE.MeshStandardMaterial({ color: "#575a55", roughness: 0.8, clippingPlanes: clipping });
-    const plateRim = new THREE.MeshStandardMaterial({ color: "#e8e6df", roughness: 0.55, clippingPlanes: clipping });
-    return { plastic, shell, insert, soil, reservoir, water, plate, plateRim, wick, rubber, rod, gauge, gaugeWater, hole };
-  }, [clip]);
+// ── Modell (GLB aus blender/stadtgarden_v5.py) und Materialien ────────────
+export const MODEL_URL = "/models/stadtgarden.glb";
+
+type Asset = {
+  nodes: Record<string, THREE.Object3D>;
+  mats: ReturnType<typeof buildMaterials>;
+};
+const AssetCtx = createContext<Asset | null>(null);
+const useAsset = () => useContext(AssetCtx)!;
+
+/**
+ * Materialien aus dem GLB übernehmen und für das Echtzeitbild abstimmen:
+ * Schnittebene, Alpha-Test statt Transparenz bei Blättern, keine Tiefenschreibung bei Wasser.
+ */
+function buildMaterials(src: Record<string, THREE.Material>, clip: THREE.Plane, quality: Quality) {
+  const clipping = [clip];
+  const pick = <T extends THREE.Material>(name: string) => (src[name] as T).clone() as T;
+  const std = (name: string, extra: Partial<THREE.MeshPhysicalMaterial> = {}) => {
+    const m = pick<THREE.MeshPhysicalMaterial>(name);
+    Object.assign(m, { side: THREE.DoubleSide, clippingPlanes: clipping }, extra);
+    m.needsUpdate = true;
+    return m;
+  };
+  const leafy = (name: string) =>
+    std(name, { transparent: false, alphaTest: 0.5, depthWrite: true, alphaToCoverage: quality === "high" } as Partial<THREE.MeshPhysicalMaterial>);
+  // Kacheltexturen (Lochraster, Erde, Gewebe) wiederholen sich – im GLB steht teils „clamp“
+  for (const m of Object.values(src) as THREE.MeshStandardMaterial[]) {
+    for (const t of [m.map, m.normalMap]) {
+      if (t && (t.wrapS !== THREE.RepeatWrapping || t.wrapT !== THREE.RepeatWrapping)) {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.needsUpdate = true;
+      }
+    }
+  }
+  const shell = std("Satin", { envMapIntensity: 1.0, color: new THREE.Color("#f9f7f2") });
+  // Lochplatte: ohne Mipmaps, sonst „verschwimmen“ die Löcher aus der Entfernung zu einer geschlossenen Fläche
+  const plateMap = (src["Trennplatte"] as THREE.MeshStandardMaterial).map;
+  if (plateMap) {
+    plateMap.generateMipmaps = false;
+    plateMap.minFilter = THREE.LinearFilter;
+    plateMap.anisotropy = 4;
+    plateMap.needsUpdate = true;
+  }
+  // Blattunterseiten etwas heller: diffuses Licht scheint durch dünne Blätter
+  for (const k of ["Efeutute", "Pfennigkraut"]) (src[k] as THREE.MeshStandardMaterial).envMapIntensity = 1.2;
+  const gaugeWater = std("Sichtfenster-Wasser", { emissive: new THREE.Color("#1f6688"), emissiveIntensity: 0.12 });
+  gaugeWater.userData.keepEmissive = true;
+  return {
+    shell,
+    plastic: shell,
+    powder: std("Pulverlack", { clippingPlanes: [] }),
+    rubber: std("Endkappe", { clippingPlanes: [] }),
+    insert: std("Einsatz"),
+    soil: std("Erde"),
+    plate: leafy("Trennplatte"),
+    plateRim: std("Trennplatte-Rand"),
+    wick: std("Kapillarelement"),
+    reservoir: std("Reservoir", { transparent: true, opacity: 0.28, depthWrite: false }),
+    water: std("Wasser", { transparent: true, opacity: 0.55, depthWrite: false }),
+    gauge: std("Sichtfenster-Rahmen"),
+    gaugeWater,
+    hole: std("Öffnung"),
+    leaf: leafy("Efeutute"),
+    jenny: leafy("Pfennigkraut"),
+    stem: std("Stängel"),
+  };
 }
 
-type Materials = ReturnType<typeof useMaterials>;
-const MatCtx = createContext<Materials | null>(null);
-const useMats = () => useContext(MatCtx)!;
+type MatKey = keyof ReturnType<typeof buildMaterials>;
+
+/** Ein Mesh aus dem GLB mit eigener Materialzuweisung; Transformation des Knotens bleibt erhalten. */
+function G({ name, mat, shadows = true, refFn, renderOrder }: { name: string; mat: MatKey; shadows?: boolean; refFn?: (o: THREE.Mesh | null) => void; renderOrder?: number }) {
+  const { nodes, mats } = useAsset();
+  const n = nodes[name] as THREE.Mesh | undefined;
+  const s = useScene();
+  if (!n) return null;
+  const cast = shadows && s.quality === "high";
+  return (
+    <mesh
+      ref={refFn}
+      geometry={n.geometry}
+      material={mats[mat]}
+      position={n.position}
+      quaternion={n.quaternion}
+      scale={n.scale}
+      castShadow={cast}
+      receiveShadow={cast}
+      renderOrder={renderOrder}
+    />
+  );
+}
 
 // ── Bauteil-Gruppe: Explosion, Herausziehen, Hover ───────────────────────
 function Part({ id, follow, children }: { id: PartId; follow?: PartId; children: React.ReactNode }) {
@@ -332,6 +348,9 @@ const LABEL_MODES: Record<PartId, Mode[]> = {
   mount: ["explosion"],
 };
 
+const tagV = new THREE.Vector3();
+const EDGE = 8;
+
 function Tag({
   position,
   visible,
@@ -342,13 +361,36 @@ function Tag({
   position: [number, number, number];
   visible: boolean;
   hot?: boolean;
-  side?: "left" | "right";
+  side?: "left" | "right" | "up";
   children: React.ReactNode;
 }) {
   const { labels } = useScene();
+  const box = useRef<HTMLDivElement>(null);
+  const width = useRef(0);
+  // Wie drei, aber das Schild bleibt ganz im Bild (schmale Bildschirme)
+  const place = (el: THREE.Object3D, camera: THREE.Camera, size: { width: number; height: number }) => {
+    tagV.setFromMatrixPosition(el.matrixWorld).project(camera);
+    let x = (tagV.x * 0.5 + 0.5) * size.width;
+    const y = (-tagV.y * 0.5 + 0.5) * size.height;
+    if (!width.current && box.current) width.current = box.current.offsetWidth;
+    const w = width.current;
+    if (w) {
+      const dx = side === "right" ? 10 : side === "left" ? -10 - w : -w / 2;
+      const lo = EDGE - dx;
+      const hi = size.width - EDGE - w - dx;
+      x = lo > hi ? lo : THREE.MathUtils.clamp(x, lo, hi);
+    }
+    return [x, y];
+  };
   return (
-    <Html position={position} portal={labels as React.MutableRefObject<HTMLElement>} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-      <div className={`tag tag--${side}${visible ? " is-on" : ""}${hot ? " is-hot" : ""}`} aria-hidden="true">
+    <Html
+      position={position}
+      portal={labels as React.MutableRefObject<HTMLElement>}
+      zIndexRange={[20, 0]}
+      style={{ pointerEvents: "none" }}
+      calculatePosition={place}
+    >
+      <div ref={box} className={`tag tag--${side}${visible ? " is-on" : ""}${hot ? " is-hot" : ""}`} aria-hidden="true">
         {children}
       </div>
     </Html>
@@ -369,118 +411,96 @@ function PartTag({ id, position, side }: { id: PartId; position: [number, number
 
 // ── Bauteile ──────────────────────────────────────────────────────────────
 function Shell() {
-  const m = useMats();
-  const geo = useMemo(() => openVessel({ A, B, H, Rx, Rz, rc }, t), []);
   return (
     <Part id="shell">
-      <mesh geometry={geo} material={m.shell} />
-      {/* Überlauf am rechten Ende (Konzept) */}
-      <mesh position={[A - 0.024, RES_TOP - 0.03, 0]} rotation={[0, 0, Math.PI / 2]} material={m.hole}>
-        <cylinderGeometry args={[0.022, 0.022, 0.012, 20]} />
-      </mesh>
+      <G name="shell" mat="shell" />
       <PartTag id="shell" position={[-1.14, 0.2, 0.3]} side="left" />
     </Part>
   );
 }
 
 function Indicator() {
-  const m = useMats();
-  const frame = useMemo(() => new THREE.CapsuleGeometry(0.03, 0.17, 6, 16), []);
-  const fill = useMemo(() => new THREE.CapsuleGeometry(0.017, 0.07, 6, 12), []);
   return (
     <Part id="indicator" follow="shell">
-      <group position={[0, 0.47, B]}>
-        <mesh geometry={frame} material={m.gauge} scale={[1, 1, 0.12]} position={[0, 0, 0.002]} />
-        <mesh geometry={fill} material={m.gaugeWater} scale={[1, 1, 0.14]} position={[0, -0.045, 0.005]} />
-      </group>
+      <G name="gauge_frame" mat="gauge" shadows={false} />
+      <G name="gauge_water" mat="gaugeWater" shadows={false} />
       <PartTag id="indicator" position={[0.08, 0.6, B + 0.02]} />
     </Part>
   );
 }
 
 function Insert() {
-  const m = useMats();
-  const geo = useMemo(
-    () =>
-      openVessel(
-        { A: INSERT_W / 2, B: INSERT.halfD, H: INSERT.top - INSERT.bottom, Rx: 0.05, Rz: 0.05, rc: rc - t - 0.02 },
-        0.014,
-      ),
-    [],
-  );
-  const soil = useMemo(() => soilBlock(INSERT_W - 0.04, INSERT.halfD * 2 - 0.04, 0.22, SOIL_TOP - INSERT.bottom - 0.02), []);
+  const { mats } = useAsset();
+  const s = useScene();
+  const { invalidate } = useThree();
+  // In der Montage-Ansicht treten die Pflanzen zurück, damit Stange und Halterungen frei liegen
+  const show = useDamped(s.driver === "manual" && s.mode === "montage" ? 0 : 1, 5, s.reduced);
+  const plants = useRef<(THREE.Mesh | null)[]>([]);
+  const last = useRef(1);
+  useFrame(() => {
+    const v = show.current;
+    if (Math.abs(v - last.current) < 1e-4) return;
+    last.current = v;
+    for (const m of [mats.leaf, mats.jenny, mats.stem]) {
+      const fading = v < 0.999;
+      if (m.transparent !== fading) {
+        m.transparent = fading;
+        m.needsUpdate = true;
+      }
+      m.opacity = v;
+    }
+    plants.current.forEach((o) => o && (o.visible = v > 0.02));
+    invalidate();
+  });
+  const keep = (i: number) => (o: THREE.Mesh | null) => {
+    plants.current[i] = o;
+  };
   return (
     <Part id="insert">
-      <group position={[INSERT_CX, INSERT.bottom, 0]}>
-        <mesh geometry={geo} material={m.insert} />
-        <mesh geometry={soil} material={m.soil} position={[0, 0.014, 0]} />
-      </group>
-      <Plants />
+      <G name="insert" mat="insert" />
+      <G name="soil" mat="soil" />
+      <G name="plant_stems" mat="stem" refFn={keep(0)} />
+      <G name="plant_pothos" mat="leaf" refFn={keep(1)} />
+      <G name="plant_jenny" mat="jenny" refFn={keep(2)} />
       <PartTag id="insert" position={[-1.12, 0.62, 0.28]} side="left" />
     </Part>
   );
 }
 
 function Plate() {
-  const m = useMats();
-  const geo = useMemo(() => flatPlate(INSERT_W + 0.02, INSERT.halfD * 2 + 0.02, 0.22), []);
-  // umlaufender, voller Rand: macht die dünne Lochplatte auch von der Seite lesbar
-  const rim = useMemo(() => {
-    const w = INSERT_W + 0.02;
-    const d = INSERT.halfD * 2 + 0.02;
-    const outer = roundedRectShape(w, d, 0.22);
-    outer.holes.push(roundedRectShape(w - 0.05, d - 0.05, 0.2));
-    const g = new THREE.ExtrudeGeometry(outer, { depth: 0.016, bevelEnabled: false, curveSegments: 8 });
-    g.rotateX(-Math.PI / 2);
-    return g;
-  }, []);
   return (
     <Part id="plate">
-      <mesh geometry={geo} material={m.plate} position={[INSERT_CX, PLATE_Y, 0]} />
-      <mesh geometry={rim} material={m.plateRim} position={[INSERT_CX, PLATE_Y - 0.008, 0]} />
+      <G name="plate" mat="plate" />
+      <G name="plate_rim" mat="plateRim" />
       <PartTag id="plate" position={[0.25, PLATE_Y + 0.02, 0.3]} />
     </Part>
   );
 }
 
 function Reservoir() {
-  const m = useMats();
-  const inset = t + GAP;
-  const body = useMemo(
-    () => closedBody({ A: A - inset, B: B - inset, H: RES_TOP - inset, Rx: Rx - inset, Rz: Rz - inset, rc: rc - inset }),
-    [inset],
-  );
-  const water = useMemo(() => {
-    const i2 = inset + 0.01;
-    return closedBody({ A: A - i2, B: B - i2, H: WATER_TOP - i2, Rx: Rx - i2, Rz: Rz - i2, rc: rc - i2 });
-  }, [inset]);
   return (
     <Part id="reservoir">
-      <mesh geometry={water} material={m.water} position={[0, inset + 0.01, 0]} renderOrder={1} />
-      <mesh geometry={body} material={m.reservoir} position={[0, inset, 0]} renderOrder={2} />
+      <G name="water" mat="water" shadows={false} renderOrder={1} />
+      <G name="reservoir" mat="reservoir" shadows={false} renderOrder={2} />
       <PartTag id="reservoir" position={[0.62, 0.1, 0.32]} />
     </Part>
   );
 }
 
 function Wicks() {
-  const m = useMats();
+  const { mats } = useAsset();
   const s = useScene();
   const manual = s.driver === "manual";
   const wet = useDamped(manual && s.mode === "wasser" ? 1 : 0, 5, s.reduced);
-  const dry = useMemo(() => new THREE.Color("#ffffff"), []);
-  const wetC = useMemo(() => new THREE.Color("#bcdbe8"), []);
+  const dry = useMemo(() => mats.wick.color.clone(), [mats]);
+  const wetC = useMemo(() => new THREE.Color("#b3d3e0"), []);
   useFrame(() => {
-    m.wick.color.copy(dry).lerp(wetC, manual ? wet.current : s.film.wet);
+    mats.wick.color.copy(dry).lerp(wetC, manual ? wet.current : s.film.wet);
   });
-  const h = WICK.top - WICK.bottom;
   return (
     <Part id="wick">
-      {[-WICK_X, WICK_X].map((x) => (
-        <mesh key={x} position={[x, WICK.bottom + h / 2, WICK.z]} material={m.wick}>
-          <boxGeometry args={[WICK.w, h, WICK.th]} />
-        </mesh>
-      ))}
+      <G name="wick_l" mat="wick" />
+      <G name="wick_r" mat="wick" />
       <PartTag id="wick" position={[-WICK_X - 0.09, WICK.top - 0.1, 0.02]} side="left" />
       <WaterFlow />
     </Part>
@@ -488,59 +508,40 @@ function Wicks() {
 }
 
 function Service() {
-  const m = useMats();
-  const len = SHAFT.top - SHAFT.bottom;
   return (
     <Part id="service">
-      <group position={[SHAFT.x, 0, SHAFT.z]}>
-        <mesh position={[0, SHAFT.bottom + len / 2, 0]} material={m.plastic}>
-          <cylinderGeometry args={[SHAFT.r, SHAFT.r, len, 28, 1, true]} />
-        </mesh>
-        <mesh position={[0, SHAFT.top + 0.01, 0]} material={m.plastic}>
-          <cylinderGeometry args={[SHAFT.r + 0.018, SHAFT.r + 0.018, 0.02, 32]} />
-        </mesh>
-        <mesh position={[0, SHAFT.top + 0.021, 0]} material={m.hole}>
-          <torusGeometry args={[SHAFT.r * 0.55, 0.006, 8, 28]} />
-        </mesh>
-      </group>
+      <G name="shaft" mat="plastic" />
+      <G name="shaft_collar" mat="plastic" />
+      <G name="shaft_hole" mat="hole" shadows={false} />
       <PartTag id="service" position={[SHAFT.x - 0.06, SHAFT.top + 0.16, 0]} side="left" />
     </Part>
   );
 }
 
+const ROD_HALF = 1.5; // Spannweite im GLB (halbe Länge bis Endkappe)
+
 function Mount() {
-  const m = useMats();
+  const { nodes } = useAsset();
   const s = useScene();
   const montage = s.driver === "manual" && s.mode === "montage";
-  const half = useDamped(montage ? WALL_INNER - 0.05 : 1.5, 3.2, s.reduced);
+  const half = useDamped(montage ? WALL_INNER - 0.05 : ROD_HALF, 3.2, s.reduced);
   const arrows = useDamped(montage ? 1 : 0, 4, s.reduced);
-  const tube = useRef<THREE.Mesh>(null);
-  const ends = useRef<(THREE.Object3D | null)[]>([]);
+  const rod = useRef<THREE.Mesh | null>(null);
+  const ends = useRef<Record<string, THREE.Mesh | null>>({});
   const arrowRefs = useRef<(THREE.Object3D | null)[]>([]);
-  // Breite, flache Halterung: Lasche hinter der Stange, Bogen darüber, Band innen an der Rückwand hinab
-  const strap = useMemo(() => {
-    const R = ROD.r + STRAP.th / 2 + 0.004;
-    const pts: [number, number][] = [
-      [ROD.z - R, ROD.y - 0.075],
-      [ROD.z - R, ROD.y - 0.02],
-    ];
-    for (let i = 0; i <= 18; i++) {
-      const a = Math.PI - (i / 18) * Math.PI;
-      pts.push([ROD.z + R * Math.cos(a), ROD.y + R * Math.sin(a)]);
-    }
-    pts.push([ROD.z + R, ROD.y - 0.06], [ROD.z + R, 0.47]);
-    return strapGeometry(pts, STRAP.w, STRAP.th);
-  }, []);
+  const base = useMemo(() => {
+    const get = (n: string) => (nodes[n] as THREE.Mesh | undefined)?.position.x ?? 0;
+    return { rodScale: (nodes.rod as THREE.Mesh | undefined)?.scale.x ?? 1, x: { sleeve_l: get("sleeve_l"), sleeve_r: get("sleeve_r"), cap_l: get("cap_l"), cap_r: get("cap_r") } as Record<string, number> };
+  }, [nodes]);
 
+  // Teleskop: Stange wird länger, Hülsen und Endkappen wandern nach außen
   useFrame(() => {
     const L = half.current;
-    if (tube.current) tube.current.scale.set(1, 2 * L - 0.3, 1);
-    ends.current.forEach((o, i) => {
-      if (!o) return;
-      const side = i < 2 ? -1 : 1;
-      const isFoot = i % 2 === 1;
-      o.position.x = side * (isFoot ? L + 0.025 : L - 0.11);
-    });
+    if (rod.current) rod.current.scale.x = base.rodScale * ((2 * L - 0.3) / (2 * ROD_HALF - 0.3));
+    for (const [k, o] of Object.entries(ends.current)) {
+      if (!o) continue;
+      o.position.x = base.x[k] + (k.endsWith("_l") ? -1 : 1) * (L - ROD_HALF);
+    }
     arrowRefs.current.forEach((o, i) => {
       if (!o) return;
       const side = i === 0 ? -1 : 1;
@@ -552,30 +553,17 @@ function Mount() {
 
   return (
     <Part id="mount">
+      <G name="rod" mat="powder" refFn={(o) => (rod.current = o)} />
+      {["sleeve_l", "sleeve_r"].map((k) => (
+        <G key={k} name={k} mat="powder" refFn={(o) => (ends.current[k] = o)} />
+      ))}
+      {["cap_l", "cap_r"].map((k) => (
+        <G key={k} name={k} mat="rubber" refFn={(o) => (ends.current[k] = o)} />
+      ))}
+      <G name="strap_l" mat="powder" />
+      <G name="strap_r" mat="powder" />
+      {/* Druckpfeile in der Montage-Ansicht */}
       <group position={[0, ROD.y, ROD.z]}>
-        <mesh ref={tube} rotation={[0, 0, Math.PI / 2]} material={m.rod}>
-          <cylinderGeometry args={[ROD.r, ROD.r, 1, 24]} />
-        </mesh>
-        {[-1, -1, 1, 1].map((side, i) => {
-          const isFoot = i % 2 === 1;
-          return (
-            <mesh
-              key={i}
-              ref={(o) => {
-                ends.current[i] = o;
-              }}
-              rotation={[0, 0, Math.PI / 2]}
-              material={isFoot ? m.rubber : m.rod}
-            >
-              {isFoot ? (
-                <cylinderGeometry args={[0.072, 0.072, 0.05, 32]} />
-              ) : (
-                <cylinderGeometry args={[ROD.r + 0.007, ROD.r + 0.007, 0.22, 24]} />
-              )}
-            </mesh>
-          );
-        })}
-        {/* Druckpfeile in der Montage-Ansicht */}
         {[-1, 1].map((side, i) => (
           <group
             key={side}
@@ -595,149 +583,17 @@ function Mount() {
           </group>
         ))}
       </group>
-      {[-HOOK_X, HOOK_X].map((x) => (
-        <mesh key={x} geometry={strap} material={m.rod} position={[x, 0, 0]} />
-      ))}
       <PartTag id="mount" position={[0.55, ROD.y + 0.1, ROD.z]} />
       <Tag position={[-HOOK_X - STRAP.w / 2, ROD.y - 0.2, ROD.z + 0.05]} visible={montage} side="left">
         Halterung
       </Tag>
-      <Tag position={[0.15, ROD.y + 0.14, ROD.z]} visible={montage}>
+      <Tag position={[0.15, ROD.y + 0.14, ROD.z]} visible={montage} side="up">
         Spannstange, verstellbar
       </Tag>
       <Tag position={[WALL_INNER - 0.55, ROD.y - 0.2, ROD.z + 0.1]} visible={montage}>
         Endkappe an der Laibung
       </Tag>
     </Part>
-  );
-}
-
-// ── Pflanzen: Efeutute (Krone + Ranken) und feine Hängepflanze ────────────
-function Plants() {
-  const { clip } = useScene();
-  const leafGeo = useMemo(() => leafGeometry(0.15), []);
-  const smallGeo = useMemo(() => smallLeafGeometry(0.026), []);
-  const mats = useMemo(() => {
-    const leaf = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.5, side: THREE.DoubleSide, clippingPlanes: [clip] });
-    const stem = new THREE.MeshStandardMaterial({ color: "#4a6331", roughness: 0.8, clippingPlanes: [clip] });
-    return { leaf, stem };
-  }, [clip]);
-
-  const data = useMemo(() => {
-    const r = rng(7);
-    const green = ["#3f7a2c", "#4f8c32", "#5f9c38", "#72ac3e"].map((c) => new THREE.Color(c));
-    const varieg = ["#a9c24a", "#bccf58", "#cbd86a"].map((c) => new THREE.Color(c));
-    const big: { m: THREE.Matrix4; c: THREE.Color }[] = [];
-    const small: { m: THREE.Matrix4; c: THREE.Color }[] = [];
-    const stems: THREE.BufferGeometry[] = [];
-    const o = new THREE.Object3D();
-    const pick = (arr: THREE.Color[]) => arr[Math.floor(r() * arr.length)];
-
-    // Krone über der Erde
-    for (let i = 0; i < 150; i++) {
-      const x = INSERT.x0 + 0.06 + r() * (INSERT_W - 0.12);
-      const z = (r() - 0.5) * 2 * (INSERT.halfD - 0.04);
-      const dome = 0.1 * Math.cos(((x - INSERT_CX) / INSERT_W) * Math.PI);
-      o.position.set(x, SOIL_TOP + 0.04 + r() * 0.24 + dome, z);
-      const yaw = Math.atan2(x - INSERT_CX, z + 0.001) + (r() - 0.5) * 1.6;
-      o.rotation.set(0.35 + r() * 0.75, yaw, (r() - 0.5) * 0.6, "YXZ");
-      o.scale.setScalar(0.8 + r() * 0.6);
-      o.updateMatrix();
-      big.push({ m: o.matrix.clone(), c: (r() < 0.35 ? pick(varieg) : pick(green)).clone() });
-    }
-
-    const strand = (x0: number, dx: number, len: number, zBase: number) =>
-      new THREE.CatmullRomCurve3([
-        new THREE.Vector3(x0, SOIL_TOP + 0.02, zBase - 0.06),
-        new THREE.Vector3(x0 + dx * 0.25, H + 0.06, zBase + 0.04),
-        new THREE.Vector3(x0 + dx * 0.5, H - 0.12, zBase + 0.1),
-        new THREE.Vector3(x0 + dx * 0.8, H - len * 0.55, zBase + 0.08),
-        new THREE.Vector3(x0 + dx, H - len, zBase + 0.05 + r() * 0.05),
-      ]);
-
-    // Efeututen-Ranken über die Vorderkante
-    const pothos: [number, number, number][] = [
-      [-1.02, -0.18, 0.95],
-      [-0.78, -0.05, 0.7],
-      [-0.5, 0.06, 1.1],
-      [-0.22, -0.08, 0.55],
-      [0.08, 0.04, 0.82],
-      [-1.12, -0.22, 0.62],
-    ];
-    for (const [x0, dx, len] of pothos) {
-      const c = strand(x0, dx, len, B);
-      stems.push(new THREE.TubeGeometry(c, 48, 0.0048, 5));
-      const n = Math.round(len * 13);
-      for (let k = 0; k < n; k++) {
-        const u = 0.12 + (k / n) * 0.86;
-        const p = c.getPoint(u);
-        const side = k % 2 ? 1 : -1;
-        o.position.set(p.x + side * 0.03, p.y, p.z + 0.02);
-        o.rotation.set(-0.35 - r() * 0.3, (r() - 0.5) * 0.9, Math.PI + side * (0.35 + r() * 0.35), "YXZ");
-        o.scale.setScalar(0.62 + r() * 0.35 - u * 0.15);
-        o.updateMatrix();
-        big.push({ m: o.matrix.clone(), c: (r() < 0.4 ? pick(varieg) : pick(green)).clone() });
-      }
-    }
-
-    // Feine Hängepflanze rechts
-    const fine: [number, number, number][] = [
-      [0.3, 0.05, 0.8],
-      [0.45, -0.04, 1.05],
-      [0.58, 0.06, 0.66],
-      [0.7, 0.02, 0.92],
-      [0.82, -0.05, 0.58],
-    ];
-    const fineGreen = ["#5d8e34", "#6c9c3a", "#7dab42"].map((c) => new THREE.Color(c));
-    for (const [x0, dx, len] of fine) {
-      const c = strand(x0, dx, len, B - 0.02);
-      stems.push(new THREE.TubeGeometry(c, 40, 0.003, 4));
-      for (let k = 0; k < 24; k++) {
-        const u = 0.08 + (k / 24) * 0.9;
-        const p = c.getPoint(u);
-        o.position.set(p.x + (r() - 0.5) * 0.06, p.y + (r() - 0.5) * 0.02, p.z + 0.01 + r() * 0.03);
-        o.rotation.set((r() - 0.5) * 0.8, (r() - 0.5) * 0.8, r() * Math.PI);
-        o.scale.setScalar(0.7 + r() * 0.5);
-        o.updateMatrix();
-        small.push({ m: o.matrix.clone(), c: pick(fineGreen).clone() });
-      }
-      // ein paar Büschel oben
-      for (let k = 0; k < 10; k++) {
-        o.position.set(x0 + (r() - 0.5) * 0.18, SOIL_TOP + 0.03 + r() * 0.12, (r() - 0.5) * 0.4);
-        o.rotation.set(-0.8 - r() * 0.6, r() * Math.PI * 2, 0, "YXZ");
-        o.scale.setScalar(0.8 + r() * 0.5);
-        o.updateMatrix();
-        small.push({ m: o.matrix.clone(), c: pick(fineGreen).clone() });
-      }
-    }
-    const stemGeo = mergeGeometries(stems, false)!;
-    stems.forEach((g) => g.dispose());
-    return { big, small, stemGeo };
-  }, []);
-
-  const bigRef = useRef<THREE.InstancedMesh>(null);
-  const smallRef = useRef<THREE.InstancedMesh>(null);
-  useLayoutEffect(() => {
-    const fill = (mesh: THREE.InstancedMesh | null, list: { m: THREE.Matrix4; c: THREE.Color }[]) => {
-      if (!mesh) return;
-      list.forEach((d, i) => {
-        mesh.setMatrixAt(i, d.m);
-        mesh.setColorAt(i, d.c);
-      });
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      mesh.computeBoundingSphere();
-    };
-    fill(bigRef.current, data.big);
-    fill(smallRef.current, data.small);
-  }, [data]);
-
-  return (
-    <group>
-      <instancedMesh ref={bigRef} args={[leafGeo, mats.leaf, data.big.length]} />
-      <instancedMesh ref={smallRef} args={[smallGeo, mats.leaf, data.small.length]} />
-      <mesh geometry={data.stemGeo} material={mats.stem} />
-    </group>
   );
 }
 
@@ -1030,7 +886,7 @@ function CameraRig() {
       controls.update();
       return;
     }
-    const k = 1 - Math.exp(-4.2 * Math.min(dt, 1 / 20));
+    const k = 1 - Math.exp(-4.2 * Math.min(dt, 1 / 10));
     camera.position.lerp(g.pos, k);
     controls.target.lerp(g.target, k);
     controls.update();
@@ -1066,7 +922,7 @@ function ResponsiveFov() {
 /** Im Film bleiben Schale und Sichtfenster ganz; der Schnitt gilt nur für das Innenleben. */
 function ShellClip() {
   const s = useScene();
-  const m = useMats();
+  const m = useAsset().mats;
   const film = s.driver === "film";
   useEffect(() => {
     for (const mat of [m.shell, m.gauge, m.gaugeWater]) {
@@ -1096,9 +952,14 @@ function Ready({ onReady }: { onReady: () => void }) {
 }
 
 function Model() {
-  const mats = useMaterials();
+  const s = useScene();
+  const gltf = useGLTF(MODEL_URL);
+  const asset = useMemo<Asset>(
+    () => ({ nodes: gltf.nodes, mats: buildMaterials(gltf.materials, s.clip, s.quality) }),
+    [gltf, s.clip, s.quality],
+  );
   return (
-    <MatCtx.Provider value={mats}>
+    <AssetCtx.Provider value={asset}>
       <group position={[0, MODEL_Y, 0]}>
         <Shell />
         <Indicator />
@@ -1111,7 +972,8 @@ function Model() {
         <Surroundings />
         <ShellClip />
       </group>
-    </MatCtx.Provider>
+      <Ready onReady={s.onReady} />
+    </AssetCtx.Provider>
   );
 }
 
@@ -1298,26 +1160,48 @@ export default function PlanterScene(props: SceneProps) {
     <Canvas
       frameloop="demand"
       dpr={low ? [1, 1.25] : [1, 1.75]}
+      shadows={low ? false : { type: THREE.PCFSoftShadowMap }}
       camera={{ position: p.pos, fov: 30, near: 0.1, far: 60 }}
       gl={{ antialias: true, alpha: true, powerPreference: low ? "default" : "high-performance" }}
       onCreated={({ gl }) => {
         gl.localClippingEnabled = true;
         gl.toneMapping = THREE.NeutralToneMapping;
-        gl.toneMappingExposure = 1.08;
+        gl.toneMappingExposure = 1.1;
       }}
       aria-hidden="true"
     >
       <SceneCtx.Provider value={ctx}>
-        <hemisphereLight args={["#fffcf6", "#e2ddd2", 0.95]} />
-        <directionalLight position={[-3, 5, 4]} intensity={2.2} color="#fff4e4" />
+        <hemisphereLight args={["#fffaf0", "#e7eadc", 1.05]} />
+        {/* Hauptlicht warm von links oben (wirft weiche Schatten: Blätter auf die Schale) */}
+        <directionalLight
+          position={[-3, 5, 4]}
+          intensity={2.4}
+          color="#fff1df"
+          castShadow={props.quality === "high"}
+          shadow-mapSize={[2048, 2048]}
+          shadow-bias={-0.0004}
+          shadow-normalBias={0.02}
+          shadow-radius={8}
+          shadow-intensity={0.55}
+          shadow-camera-left={-2.4}
+          shadow-camera-right={2.4}
+          shadow-camera-top={2.6}
+          shadow-camera-bottom={-2.4}
+          shadow-camera-near={1}
+          shadow-camera-far={14}
+        />
+        {/* kühles Fülllicht und warmes Kantenlicht */}
         <directionalLight position={[4, 1.5, -3]} intensity={0.55} color="#e3edf2" />
+        <directionalLight position={[2.5, 2.5, -4]} intensity={0.6} color="#fff6e8" />
         <Environment resolution={low ? 128 : 256} frames={1}>
           <Lightformer form="rect" intensity={2.4} position={[0, 4, 1.5]} rotation-x={Math.PI / 2} scale={[8, 3, 1]} />
           <Lightformer form="rect" intensity={1.2} position={[-5, 1, 2]} rotation-y={Math.PI / 2} scale={[4, 3, 1]} />
           <Lightformer form="rect" intensity={0.7} position={[5, 1, -1]} rotation-y={-Math.PI / 2} scale={[4, 3, 1]} />
           <Lightformer form="rect" intensity={0.5} position={[0, 1, 6]} scale={[6, 2, 1]} color="#fff6ea" />
         </Environment>
-        <Model />
+        <Suspense fallback={null}>
+          <Model />
+        </Suspense>
         <Shadows />
         <CameraRig />
         <ResponsiveFov />
@@ -1338,8 +1222,9 @@ export default function PlanterScene(props: SceneProps) {
           maxPolarAngle={1.78}
           target={p.target}
         />
-        <Ready onReady={props.onReady} />
       </SceneCtx.Provider>
     </Canvas>
   );
 }
+
+useGLTF.preload(MODEL_URL);

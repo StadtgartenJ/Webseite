@@ -18,7 +18,7 @@ export default function Datenschutz() {
       <h2>2. Kurz gesagt</h2>
       <p>
         Diese Website setzt keine Cookies, nutzt keine Analyse- oder Trackingdienste und bindet keine Inhalte von
-        Drittanbietern ein. Schriften und Bilder werden von unserem eigenen Webspace ausgeliefert. Personenbezogene Daten
+        Drittanbietern ein. Schriften, Bilder und das 3D-Modell werden von unserem eigenen Webspace ausgeliefert. Personenbezogene Daten
         verarbeiten wir nur beim Aufruf der Seite (technisch notwendig) und wenn du dich freiwillig in die Warteliste
         einträgst.
       </p>
