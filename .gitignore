@@ -1,0 +1,23 @@
+# Claude-Skills und Arbeitsdateien nicht veröffentlichen
+.claude/
+.impeccable/
+.taste-skill/
+
+# Abhängigkeiten und Build
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Lokale Umgebungsvariablen (nie committen)
+.env
+.env.*.local
+.env.local
+waitlist-worker/.dev.vars
+waitlist-worker/.wrangler/
+
+# System
+.DS_Store
+Thumbs.db
+shots/

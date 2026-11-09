@@ -1,0 +1,24 @@
+# Cloudflare Worker für die Warteliste. Anleitung: waitlist-worker/README.md
+name = "stadtgarden-warteliste"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+# Nur Anfragen von diesen Adressen werden angenommen (CORS)
+ALLOWED_ORIGINS = "https://stadtgarden.de,https://www.stadtgarden.de"
+# Ziel des Bestätigungslinks in der Double-Opt-in-Mail
+DOI_REDIRECT_URL = "https://stadtgarden.de/bestaetigt/"
+# Aus dem Brevo-Konto übernehmen (Kontakte → Listen, Kampagnen → Vorlagen)
+BREVO_LIST_ID = ""
+BREVO_DOI_TEMPLATE_ID = ""
+# BREVO_API_KEY ist ein Secret:  npx wrangler secret put BREVO_API_KEY
+
+# Höchstens 5 Anmeldeversuche pro IP und Minute.
+# Syntax vor dem ersten Deploy mit der aktuellen Cloudflare-Doku „Workers Rate Limiting“ abgleichen.
+[[ratelimits]]
+name = "WAITLIST_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60

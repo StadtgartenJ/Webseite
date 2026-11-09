@@ -1,0 +1,6 @@
+# Für lokales Testen mit `npx wrangler dev`: als .dev.vars kopieren (wird nicht committet)
+BREVO_API_KEY=xkeysib-...
+BREVO_LIST_ID=3
+BREVO_DOI_TEMPLATE_ID=7
+DOI_REDIRECT_URL=http://localhost:3000/bestaetigt/
+ALLOWED_ORIGINS=http://localhost:3000
