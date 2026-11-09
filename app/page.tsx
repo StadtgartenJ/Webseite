@@ -2,224 +2,240 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Picture } from "@/components/Picture";
 import { WaitlistForm } from "@/components/WaitlistForm";
-import { WordHighlight } from "@/components/WordHighlight";
+import { WaitlistLink } from "@/components/WaitlistLink";
+import { ScrollFloat } from "@/components/ScrollFloat";
+import { StickyCta } from "@/components/StickyCta";
 import { ProductExplorer } from "@/components/explorer/ProductExplorer";
 
-const DETAILS = [
-  {
-    n: "01",
-    title: "Ohne Bohren",
-    text: "Eine Klemmstange spannt sich zwischen die Seiten deiner Fensterlaibung, der Kasten hängt an zwei Haken darunter. So soll die Fassade unversehrt bleiben, wenn die Laibung dafür geeignet ist.",
-    img: { name: "detail-rod", w: 324, h: 162, alt: "Weiße Klemmstange mit rundem Endstück an der Laibung, ein Haken hält den Kasten" },
-  },
-  {
-    n: "02",
-    title: "Wasser, wenn Pflanzen es brauchen",
-    text: "Unten liegt ein Wasserreservoir, darüber ein Docht, der Feuchtigkeit nach oben ins Substrat zieht. Ein schmales Sichtfenster zeigt, wann du nachfüllen solltest.",
-    img: { name: "detail-membrane", w: 320, h: 160, alt: "Nahaufnahme eines feinen, saugfähigen Gewebes mit Wassertropfen" },
-  },
-  {
-    n: "03",
-    title: "Design, das bleibt",
-    text: "Eine weiche, weiße Kapsel ohne Schnörkel. Gezeichnet für Altbau wie Neubau, für Efeutute ebenso wie für Thymian.",
-    img: { name: "detail-shell", w: 600, h: 300, alt: "Weiße Kapselform mit schmalem Sichtfenster, darüber hängende Efeutute" },
-  },
-];
+const PORTRAIT = { widths: [640, 900, 1122], width: 1122, height: 1402 };
 
 export default function Home() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader overlay />
       <main id="inhalt">
-        {/* 01 · Hero */}
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="wrap hero__grid">
-            <div className="hero__copy">
-              <h1 id="hero-title" className="hero__title">
-                <span className="enter" style={{ "--i": 0 } as React.CSSProperties}>Ein Fenster.</span>{" "}
-                <span className="enter" style={{ "--i": 1 } as React.CSSProperties}>Ein kleiner Garten.</span>
-              </h1>
-              <p className="lead enter" style={{ "--i": 2 } as React.CSSProperties}>
-                Ein Pflanzkasten für vor dein Fenster. Er soll ohne Bohren halten und seine Pflanzen aus einem eigenen
-                Wasservorrat versorgen. Für mehr Grün mitten in der Stadt.
+        {/* 01 · Hero: das Gefühl zuerst */}
+        <section id="hero" className="hero" aria-labelledby="hero-title">
+          <div className="hero__media">
+            <Picture
+              name="hero-wide"
+              widths={[960, 1440, 1672]}
+              width={1672}
+              height={941}
+              sizes="100vw"
+              alt="Weißer Pflanzkasten mit Efeutute hängt an einer Spannstange vor einem Altbaufenster, warmes Abendlicht fällt auf die Fassade"
+              className="hero__img"
+              priority
+              art={{ name: "hero-mobile", widths: [600, 910], media: "(max-width: 639px)", sizes: "100vw", width: 910, height: 941 }}
+            />
+          </div>
+          <div className="wrap hero__content">
+            <h1 id="hero-title" className="hero__title">
+              <span className="line">
+                <span style={{ "--i": 0 } as React.CSSProperties}>Dein Fenster.</span>
+              </span>
+              <span className="line">
+                <span style={{ "--i": 1 } as React.CSSProperties}>Dein Garten.</span>
+              </span>
+            </h1>
+            <div className="hero__text">
+              <p className="hero__promise">
+                <span className="l">Mehr Grün für dein Zuhause –</span> <span className="l">auch ohne Balkon.</span>
               </p>
-              <div className="enter" style={{ "--i": 3 } as React.CSSProperties}>
-                <WaitlistForm
-                  note={
-                    <>
-                      Noch in Entwicklung. Du bekommst eine Mail zur Bestätigung und kannst dich jederzeit abmelden.{" "}
-                      <a className="link" href="/datenschutz/">
-                        Datenschutz
-                      </a>
-                    </>
-                  }
+              <p className="hero__lead">
+                Entdecke einen Pflanzkasten, der sich ohne Bohren am passenden Fenster befestigen lässt und mit einem
+                durchdachten Bewässerungskonzept das Gießen erleichtern soll.
+              </p>
+            </div>
+            <div className="hero__form">
+              <WaitlistForm
+                size="lg"
+                inputId="hero-email"
+                note={
+                  <>
+                    <strong>In Entwicklung.</strong> Erfahre als Erstes vom Launch.{" "}
+                    <a className="link" href="/datenschutz/">
+                      Datenschutz
+                    </a>
+                  </>
+                }
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* 02 · Produkt-Reveal: die Verwandlung */}
+        <section id="produkt" className="reveal" aria-labelledby="reveal-title">
+          <div className="wrap reveal__grid">
+            <div className="reveal__copy">
+              <h2 id="reveal-title" className="display-2">
+                <span className="l">Ein kleines Stück Natur.</span> <span className="l">Mitten in der Stadt.</span>
+              </h2>
+              <p className="reveal__text">
+                Wenig Platz, große Ideen. Unser Fensterpflanzkasten verbindet zeitloses Design mit einer cleveren
+                Befestigung und einer neuen Art der Pflanzenversorgung. Für alle, die sich ein bisschen mehr Grün wünschen.
+              </p>
+              <WaitlistLink className="btn btn--lime" inline />
+            </div>
+            <ScrollFloat className="reveal__product">
+              <Picture
+                name="studio-float"
+                {...PORTRAIT}
+                sizes="(min-width: 1024px) 66vw, 110vw"
+                alt="Der weiße Pflanzkasten mit Efeutute und feinen Hängepflanzen, freigestellt vor sattgrünem Hintergrund"
+                className="reveal__img"
+              />
+            </ScrollFloat>
+          </div>
+        </section>
+
+        {/* 03 · Vorteile: was er kann */}
+        <section id="vorteile" className="benefits" aria-labelledby="benefits-title">
+          <div className="wrap">
+            <h2 id="benefits-title" className="display-2 benefits__title">
+              <span className="l">Kleine Idee.</span> <span className="l">Großer Unterschied.</span>
+            </h2>
+
+            <article className="benefit benefit--garden">
+              <div className="benefit__media">
+                <Picture
+                  name="window-plants"
+                  {...PORTRAIT}
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  alt="Pflanzkasten voller Efeutute und Pfennigkraut vor einem sonnigen Fenster, dahinter eine Altbaufassade"
+                  className="benefit__img"
                 />
               </div>
-            </div>
-            <div className="hero__media">
-              <Picture
-                name="hero-window"
-                widths={[480, 720, 960, 1122]}
-                width={1122}
-                height={1402}
-                sizes="(min-width: 1024px) 46vw, 100vw"
-                alt="Weißer Pflanzkasten mit Efeutute und feinen Hängepflanzen vor einem hellen Altbaufenster im Abendlicht"
-                className="hero__img"
-                priority
-              />
-            </div>
+              <div className="benefit__copy">
+                <h3>Dein Garten beginnt am Fenster.</h3>
+                <p>Kein Balkon? Kein Problem. Nutze den Platz vor deinem Fenster für etwas, das wächst.</p>
+              </div>
+            </article>
+
+            <article className="benefit benefit--mount">
+              <div className="benefit__copy">
+                <h3>Einspannen statt bohren.</h3>
+                <p>
+                  Ein dezentes Klemmsystem soll die Montage an geeigneten Fenstern ermöglichen – ohne Löcher in der Fassade.
+                </p>
+              </div>
+              <div className="benefit__media">
+                <Picture
+                  name="mount-detail"
+                  {...PORTRAIT}
+                  sizes="(min-width: 1024px) 58vw, 100vw"
+                  alt="Nahaufnahme der Halterung: Ein weißes Band läuft über die Spannstange, deren rundes Endstück an der Laibung anliegt"
+                  className="benefit__img"
+                />
+              </div>
+            </article>
+
+            <article className="benefit benefit--water">
+              <div className="benefit__media">
+                <Picture
+                  name="cutaway"
+                  {...PORTRAIT}
+                  sizes="(min-width: 1024px) 46vw, 100vw"
+                  alt="Konzeptschnitt durch den Kasten: Pflanzeinsatz mit Erde, gelochte Platte und zwei Kapillarelemente im Wasserreservoir"
+                  className="benefit__img"
+                />
+                <div className="benefit__inset">
+                  <Picture
+                    name="macro-gauge"
+                    {...PORTRAIT}
+                    sizes="(min-width: 1024px) 16vw, 36vw"
+                    alt="Das schmale Sichtfenster vorne am Kasten, darin blaues Wasser"
+                    className="benefit__img"
+                  />
+                </div>
+              </div>
+              <div className="benefit__copy">
+                <h3>Weniger gießen. Mehr genießen.</h3>
+                <p>
+                  Ein integriertes Wasserreservoir mit geplanter Kapillarbewässerung soll deine Pflanzen länger mit
+                  Feuchtigkeit versorgen.
+                </p>
+                <WaitlistLink className="btn btn--forest" inline />
+              </div>
+            </article>
           </div>
         </section>
 
-        {/* 02 · Die Idee */}
-        <section id="konzept" className="section concept" aria-labelledby="konzept-title">
-          <div className="wrap concept__grid">
-            <div className="concept__statement">
-              <WordHighlight
-                as="h2"
-                className="concept__title"
-                text="Nicht jede Stadtwohnung hat einen Balkon. Aber fast jede hat ein Fenster. Dort fängt dein Garten an."
-                accent={["Fenster"]}
-              />
-            </div>
-            <div className="concept__body">
-              <p>
-                Vor der Scheibe liegt oft ungenutzter Platz. Klassische Blumenkästen wollen angeschraubt, abgestützt und
-                ständig gegossen werden. Wir entwerfen einen Kasten, der in die Fensterlaibung geklemmt wird und seinen
-                eigenen Wasservorrat mitbringt.
-              </p>
-              <p>Von drinnen siehst du Blätter statt Fassade. Von draußen ein ruhiges Objekt, das zum Haus passt.</p>
-            </div>
-            <div className="concept__media">
-              <Picture
-                name="daylight"
-                widths={[584]}
-                width={584}
-                height={336}
-                sizes="(min-width: 1024px) 40vw, 100vw"
-                alt="Der Pflanzkasten im Tageslicht, an einer Klemmstange vor einem weißen Fenster"
-                className="frame-img"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* 03 · Drei Details */}
-        <section className="section details" aria-labelledby="details-title">
-          <div className="wrap">
-            <h2 id="details-title" className="section-title">
-              Drei Details, die ihn ausmachen.
-            </h2>
-            <ol className="details__list">
-              {DETAILS.map((d) => (
-                <li key={d.n} className="detail">
-                  <span className="detail__n" aria-hidden="true">
-                    {d.n}
-                  </span>
-                  <div className="detail__copy">
-                    <h3>{d.title}</h3>
-                    <p>{d.text}</p>
-                  </div>
-                  <div className="detail__media">
-                    <Picture
-                      name={d.img.name}
-                      widths={[d.img.w]}
-                      width={d.img.w}
-                      height={d.img.h}
-                      sizes="(min-width: 1024px) 26vw, 100vw"
-                      alt={d.img.alt}
-                      className="frame-img"
-                    />
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* 04 · Im Inneren */}
-        <section id="so-funktionierts" className="section inside" aria-labelledby="inside-title">
+        {/* 04 · Technik: Vertrauen und Neugier */}
+        <section id="so-funktionierts" className="inside" aria-labelledby="inside-title">
           <div className="wrap">
             <div className="inside__head">
-              <h2 id="inside-title" className="section-title">
-                Durchdacht. Bis ins Detail.
+              <h2 id="inside-title" className="display-2">
+                <span className="l">Schön durchdacht.</span> <span className="l">Bis ins Innere.</span>
               </h2>
               <p>
-                Dreh das Modell, zieh es auseinander, schau hinein. Es zeigt, wie wir uns den Aufbau heute vorstellen. Die
-                eigentliche Konstruktion entsteht gerade erst.
+                Außen eine klare Form. Innen ein durchdachtes Konzept: Ein Wasserreservoir und Kapillarelemente sollen
+                Feuchtigkeit dorthin bringen, wo die Wurzeln sie brauchen.
               </p>
             </div>
             <ProductExplorer />
           </div>
         </section>
 
-        {/* 05 · Ein bisschen mehr Grün */}
-        <section className="section greener" aria-labelledby="greener-title">
-          <div className="wrap">
-            <div className="greener__head">
-              <h2 id="greener-title" className="section-title">
-                Ein bisschen Grün, jeden Morgen.
+        {/* 05 · Lifestyle */}
+        <section id="alltag" className="city" aria-labelledby="city-title">
+          <div className="city__media">
+            <Picture
+              name="facade"
+              widths={[960, 1536]}
+              width={1536}
+              height={1024}
+              sizes="100vw"
+              alt="Helle Pariser Altbaufassade mit Laternen und Bäumen; an einem Fenster hängt der weiße Pflanzkasten mit Efeutute"
+              className="city__img"
+            />
+          </div>
+          <div className="wrap city__wrap">
+            <div className="city__panel">
+              <h2 id="city-title" className="display-2">
+                Die Stadt ist
+                <br />
+                grau genug.
               </h2>
-              <p>
-                Der erste Blick aus dem Fenster fällt auf Blätter, nicht auf die Hauswand gegenüber. Und die Efeutute hängt
-                jede Woche ein Stück tiefer.
-              </p>
-            </div>
-            <div className="greener__media">
-              <Picture
-                name="window-light"
-                widths={[640, 960, 1122]}
-                width={1122}
-                height={640}
-                sizes="(min-width: 1440px) 1312px, 100vw"
-                alt="Sprossenfenster eines Altbaus im warmen Abendlicht, Blätter spiegeln sich in der Scheibe"
-                className="frame-img"
-              />
+              <p>Ein bisschen Grün verändert den Blick nach draußen. Und vielleicht auch das Gefühl drinnen.</p>
             </div>
           </div>
         </section>
 
         {/* 06 · Warteliste */}
-        <section id="warteliste" className="section waitlist" aria-labelledby="waitlist-title">
-          <div className="wrap waitlist__grid">
-            <div className="waitlist__copy">
-              <h2 id="waitlist-title" className="waitlist__title">
-                Etwas Grünes wächst heran.
+        <section id="warteliste" className="final" aria-labelledby="final-title">
+          <div className="wrap final__grid">
+            <div className="final__copy">
+              <h2 id="final-title" className="display-1 final__title">
+                Bald wächst
+                <br />
+                hier etwas.
               </h2>
-              <div className="waitlist__body">
-                <p>
-                  Wir arbeiten an einem neuen Zuhause für deine Pflanzen. Trag dich ein und erfahre zuerst, wann es losgeht.
-                </p>
-                <WaitlistForm
-                  tone="dark"
-                  note={
-                    <>
-                      Du bekommst eine Mail mit Bestätigungslink. Danach schreiben wir dir nur zum Start und zu wichtigen
-                      Neuigkeiten, Abmelden geht jederzeit. Mehr in der{" "}
-                      <a className="link" href="/datenschutz/">
-                        Datenschutzerklärung
-                      </a>
-                      .
-                    </>
-                  }
-                />
-              </div>
+              <p className="final__text">
+                Wir entwickeln einen neuen Platz für deine Pflanzen. Trag dich ein und erfahre als Erstes, wenn es
+                Neuigkeiten zum Launch gibt.
+              </p>
             </div>
-            <div className="waitlist__media">
-              <Picture
-                name="trailing"
-                widths={[430]}
-                width={430}
-                height={520}
-                sizes="(min-width: 1024px) 430px, 100vw"
-                alt="Efeutute rankt über den Rand des weißen Kastens"
-                className="frame-img"
+            <div className="final__form">
+              <WaitlistForm
+                tone="dark"
+                size="lg"
+                inputId="waitlist-email"
+                note={
+                  <>
+                    Nur Updates zum Produkt. Jederzeit abmeldbar.{" "}
+                    <a className="link" href="/datenschutz/">
+                      Datenschutz
+                    </a>
+                  </>
+                }
               />
             </div>
           </div>
         </section>
       </main>
       <SiteFooter />
+      <StickyCta />
     </>
   );
 }

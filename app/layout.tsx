@@ -5,15 +5,15 @@ import "./globals.css";
 // Schriften liegen im Projekt (SIL Open Font License) und werden von der eigenen Domain
 // ausgeliefert: keine Verbindung zu Google Fonts beim Seitenaufruf (wichtig für die DSGVO).
 const display = localFont({
-  src: "./fonts/FamiljenGrotesk-Variable.woff2",
-  weight: "400 700",
+  src: "./fonts/BricolageGrotesque-Variable.woff2",
+  weight: "200 800",
   variable: "--font-display",
   display: "swap",
 });
 
 const text = localFont({
-  src: "./fonts/InstrumentSans-Variable.woff2",
-  weight: "400 700",
+  src: "./fonts/Figtree-Variable.woff2",
+  weight: "300 900",
   variable: "--font-text",
   display: "swap",
 });
@@ -23,28 +23,35 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://stadtgarden.de";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Stadtgarden – Ein Pflanzkasten für dein Fenster",
-    template: "%s · Stadtgarden",
+    default: "Dein Fenster. Dein Garten. | Stadtgarden",
+    template: "%s | Stadtgarden",
   },
   description:
-    "Ein Pflanzkasten, der ohne Bohren vor deinem Fenster hängen soll – mit eigenem Wasserreservoir. Noch in Entwicklung. Trag dich in die Warteliste ein.",
+    "Mehr Grün für dein Zuhause – auch ohne Balkon. Entdecke unseren Fensterpflanzkasten mit bohrfreier Montageidee und cleverem Bewässerungskonzept. Jetzt auf die Warteliste.",
   applicationName: "Stadtgarden",
   openGraph: {
     type: "website",
     locale: "de_DE",
     url: "/",
     siteName: "Stadtgarden",
-    title: "Ein Fenster. Ein kleiner Garten.",
+    title: "Dein Fenster. Dein Garten.",
     description:
-      "Ein Pflanzkasten für vor dein Fenster. Noch in Entwicklung – trag dich in die Warteliste ein.",
-    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "Weißer Pflanzkasten mit Efeutute vor einem Altbaufenster im Abendlicht" }],
+      "Mehr Grün für dein Zuhause – auch ohne Balkon. Ein Fensterpflanzkasten mit bohrfreier Montageidee und cleverem Bewässerungskonzept. Jetzt auf die Warteliste.",
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Weißer Pflanzkasten mit Efeutute vor einem Altbaufenster im warmen Abendlicht",
+      },
+    ],
   },
   twitter: { card: "summary_large_image" },
   robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F8F7F3",
+  themeColor: "#F7F6EF",
   colorScheme: "light",
 };
 

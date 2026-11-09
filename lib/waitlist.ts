@@ -11,7 +11,8 @@
  */
 
 export type WaitlistResult =
-  | { status: "pending" } // Bestätigungsmail verschickt (oder Adresse bereits eingetragen)
+  | { status: "pending" } // Bestätigungsmail wurde verschickt
+  | { status: "already" } // Adresse steht schon auf der Liste
   | { status: "error"; reason: "invalid" | "rate_limited" | "unavailable" | "not_configured" | "network" };
 
 const ENDPOINT = process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT || "";
@@ -51,7 +52,12 @@ export async function joinWaitlist(input: {
         elapsedMs: Math.round(input.elapsedMs),
       }),
     });
-    if (res.ok) return { status: "pending" };
+    if (res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { status?: string };
+      if (data.status === "already") return { status: "already" };
+      if (data.status === "pending") return { status: "pending" };
+      return { status: "error", reason: "unavailable" };
+    }
     if (res.status === 400 || res.status === 422) return { status: "error", reason: "invalid" };
     if (res.status === 429) return { status: "error", reason: "rate_limited" };
     return { status: "error", reason: "unavailable" };

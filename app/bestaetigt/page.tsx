@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Anmeldung bestätigt", robots: { ind
 export default function Bestaetigt() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader cta={false} />
       <main id="inhalt" className="confirm">
         <div className="wrap confirm__inner">
           <h1>Du stehst auf der Liste.</h1>

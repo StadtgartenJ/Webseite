@@ -1,8 +1,8 @@
 # Stadtgarden – Pre-Launch-Website
 
-Einseitige Website für einen Pflanzkasten, der vor dem Fenster hängt. Ziel: Interesse sammeln über eine Warteliste mit Double-Opt-in. **Das Produkt ist in Entwicklung**; alle Bilder sind Konzeptvisualisierungen, das 3D-Modell ist ein prozedurales Konzeptmodell, keine Konstruktion.
+Einseitige Kampagnen-Website für einen Pflanzkasten in Kapselform, der vor dem Fenster hängt. Ziel: E-Mail-Adressen für die Warteliste sammeln (Double-Opt-in). **Das Produkt ist in Entwicklung**; alle Bilder sind KI-Konzeptvisualisierungen, das 3D-Modell ist ein prozedurales Konzeptmodell, keine Konstruktion.
 
-- **Stack:** Next.js 15 (statischer Export), React 19, TypeScript, plain CSS mit Design-Tokens, React Three Fiber + Drei für das 3D-Modell
+- **Stack:** Next.js 15 (statischer Export), React 19, TypeScript, CSS mit Design-Tokens, React Three Fiber + Drei für das 3D-Modell
 - **Hosting:** GitHub Pages über GitHub Actions, Domain `stadtgarden.de`
 - **Warteliste:** Cloudflare Worker → Brevo (Double-Opt-in), siehe [`waitlist-worker/`](waitlist-worker/README.md)
 - **Keine Cookies, kein Tracking, keine externen Schriften**
@@ -18,70 +18,85 @@ npx serve out        # Export ansehen
 
 Für ein funktionierendes Formular lokal: `.env.example` nach `.env.local` kopieren und `NEXT_PUBLIC_WAITLIST_ENDPOINT` setzen. Ohne den Wert meldet das Formular offen „Die Warteliste öffnet in Kürze“ und nimmt keine Adressen an.
 
-## Aufbau
+## Seitenaufbau und Text
+
+Die Reihenfolge folgt der Positionierung: Gefühl → Alltag → Funktion → Technik → Einladung.
+
+| Abschnitt | Grund | Überschrift | Inhalt |
+| --- | --- | --- | --- |
+| Hero | Foto (Goldene Stunde) | „Dein Fenster. Dein Garten.“ | Versprechen „Mehr Grün für dein Zuhause – auch ohne Balkon.“, Formular direkt im Hero, Hinweis „In Entwicklung.“ |
+| Reveal | Moos, Studiolicht | „Ein kleines Stück Natur. Mitten in der Stadt.“ | freigestelltes Produkt größer als der Text, zweite CTA |
+| Vorteile | Elfenbein | „Kleine Idee. Großer Unterschied.“ | drei asymmetrische Kompositionen: Fenster mit Pflanzen · Klemm-Detail · Schnittbild mit Sichtfenster-Ausschnitt und CTA |
+| Technik | Botanik-Hellgrün | „Schön durchdacht. Bis ins Innere.“ | Scroll-Film: die 3D-Bühne bleibt stehen, der Kasten öffnet sich beim Scrollen, Wasserweg, setzt sich wieder zusammen. Danach Tabs Produkt / Innenleben / Wasserweg / Montage zum Selbsterkunden |
+| Alltag | Fassade vollflächig | „Die Stadt ist grau genug.“ | ruhige Textkarte über dem Foto |
+| Warteliste | Waldgrün | „Bald wächst hier etwas.“ | Formular, „Nur Updates zum Produkt. Jederzeit abmeldbar.“ |
+
+**CTA-System:** überall derselbe Text „Auf die Warteliste“ (Hero, Reveal, Vorteile, Abschluss, Kopfzeile am Desktop, Handy-Leiste). Jeder CTA-Link setzt den Cursor direkt ins nächste E-Mail-Feld. Die Handy-Leiste unten erscheint nur, wenn gerade kein anderer CTA und kein Formular im Bild ist. Keine Pop-ups.
+
+**Formularzustände:** Leer und ungültig (am Feld), „Fast geschafft!“ (nur wenn der Server bestätigt, dass die Bestätigungsmail rausging), „Schon dabei“ (Adresse bereits eingetragen oder unbestätigt), ein allgemeiner Fehlertext für alles andere. Ohne konfigurierten Endpunkt sagt das Formular offen, dass die Warteliste noch keine Adressen annimmt.
+
+## Designsystem
+
+- **Farben:** Wald `#173F35`, Moos `#56663F`, Botanik `#C5DBAC` / hell `#E2EBD3`, Elfenbein `#F7F6EF`, Lime `#DCEB91` (Akzent und CTA auf Grün), Tinte `#202522`. Alle Tokens oben in `app/globals.css`.
+- **Schrift:** Bricolage Grotesque (Überschriften, optische Größe 56, normale Breite, Gewicht 560) und Figtree (Text, Fließtext ab 17 px). Beide selbst gehostet, SIL OFL. Überschriften brechen nach Sinnzeilen (`.l`-Spans mit `text-wrap: balance`).
+- **Formmotiv:** die Kapsel des Produkts. Pill-Buttons mit einem „Füllstand“-Punkt, der beim Hover steigt; Abschnitte mit kapselförmig gerundeten Kanten.
+- **Bewegung:** ein Auftritt beim Laden (Bild setzt sich, Zeilen steigen aus einer Maske), das schwebende Produkt im Reveal und der Scroll-Film im Technik-Abschnitt. Unter `prefers-reduced-motion` gibt es keinen Film und keine Kamerafahrt, nur die Tabs.
+
+## Code-Struktur
 
 ```
-app/
-  page.tsx               Startseite: Hero, Konzept, Details, 3D, Mehr Grün, Warteliste
-  impressum/ datenschutz/ Rechtsseiten mit markierten Platzhaltern
-  bestaetigt/            Ziel des Bestätigungslinks aus der Double-Opt-in-Mail
-  globals.css            Designsystem (Tokens, Raster, Komponenten)
-  fonts/                 Familjen Grotesk + Instrument Sans (SIL OFL), selbst gehostet
+app/                     Seiten (Startseite, Impressum, Datenschutz, /bestaetigt), globals.css, Schriften
 components/
-  WaitlistForm.tsx       Formular mit Lade-, Fehler- und Erfolgszustand, Honeypot
-  WordHighlight.tsx      Der eine Scroll-Moment der Seite (Satz wird Wort für Wort dunkel)
-  explorer/              3D-Konzeptmodell
-    PlanterScene.tsx       Szene, Bauteile, Wasserweg, Montage, Kamera
-    geometry.ts            prozedurale Geometrie (Kapsel, Einsatz, Reservoir, Blätter)
-    parts.ts               Texte zu Bauteilen und Ansichten
-    ProductExplorer.tsx    Bedienoberfläche, Lazy Loading, Fallback
-    CutawayFallback.tsx    statische Schnittzeichnung (ohne WebGL / beim Laden)
+  SiteHeader.tsx         Kopfzeile, transparent über dem Hero (Desktop)
+  WaitlistForm.tsx       Formular mit sichtbarem Label, Lade-, Fehler-, „bereits eingetragen“- und Erfolgszustand, Honeypot
+  WaitlistLink.tsx       einheitlicher CTA „Auf die Warteliste“, fokussiert das nächste E-Mail-Feld
+  ScrollFloat.tsx        schwebendes Produkt im Reveal (scrollgekoppelt)
+  StickyCta.tsx          Handy-Leiste
+  Picture.tsx            AVIF/WebP mit Art-Direction (eigener Handy-Ausschnitt)
+  explorer/              3D-Konzeptmodell (Szene, Geometrie, Texte, Fallbacks)
+    film.ts              Drehbuch des Scroll-Films: Schlüsselwerte für Bauteile, Kamera, Schnitt, Wasser, Beschriftungen
+    ProductExplorer.tsx  GSAP-Timeline + ScrollTrigger (pin, scrub), Kapiteltexte, Übergabe an die Tabs
+    PlanterScene.tsx     R3F-Szene; liest den Film-Zustand oder die Tabs, schreibt als Einzige die Transformationen
 lib/waitlist.ts          Client-Adapter zum Wartelisten-Endpunkt
 waitlist-worker/         serverseitiger Endpunkt (Cloudflare Worker)
-assets-src/              Originalbilder; npm run images erzeugt public/images/
+assets-src/v2/           Original-Bilder; npm run images erzeugt public/images/
+docs/bilder.md           Bildinventar, fehlende Motive, fertige Prompts
 ```
 
-## Bilder austauschen
+## Scroll-Film (GSAP ScrollTrigger + React Three Fiber)
 
-Neue Fotos nach `assets-src/` legen, Ausschnitte in `scripts/optimize-images.mjs` anpassen, `npm run images` ausführen. Es entstehen AVIF- und WebP-Varianten plus `public/og.jpg` für Link-Vorschauen.
+- **Ablauf (0–100 % des Scrollwegs):** Produkt, Kamera fährt näher → Klemmsystem und Pflanzeinsatz heben ab → Trennplatte, Kapillarelemente, Reservoir und Außenschale trennen sich, alle Teile beschriftet → Einsatz sitzt auf, Schnitt öffnet sich, Tropfen steigen in den Kapillarelementen → alles setzt sich zusammen → Kamera zurück in die Produktansicht, die Bühne gibt die Seite frei.
+- **Eine Quelle je Wert:** GSAP schreibt nur in ein Zustandsobjekt (`film.ts`), die Szene liest es und setzt als Einzige die Three.js-Transformationen. Alle Spuren sind `fromTo`-Ketten mit festen Start- und Endwerten, deshalb ist jede Scrollposition eindeutig – auch beim Zurückscrollen oder Springen.
+- **Bildaufbau:** In beschrifteten Phasen berechnet die Kamera Abstand und Bildausschnitt so, dass das Modell neben der Beschriftungsspalte und dem Kapiteltext Platz hat (Desktop, Tablet, Handy).
+- **Übergabe:** Am Ende steht die Kamera exakt in der Ansicht des Tabs „Produkt“; ab dort übernehmen die Tabs. Scrollt man zurück, übernimmt wieder der Film. „Überspringen“ springt ans Ende.
+- **Bildschirme:** eigener Scrollweg je Größe (`gsap.matchMedia`), auf dem Handy kompaktere Beschriftungen und Kapiteltext unter der Szene.
+- **Schonung:** schwächere Geräte rendern mit weniger Pixeln, kleineren Schatten und weniger Tropfen. Bei „Bewegung reduzieren“ kein Pin, keine Kamerafahrt.
+- **Anpassen:** Zeiten und Werte stehen in `components/explorer/film.ts` (Zeitachse 0–10).
 
 ## Veröffentlichen (GitHub Pages)
 
-1. Im Repository unter **Settings → Pages → Build and deployment → Source** „GitHub Actions“ wählen.
-2. Unter **Settings → Pages → Custom domain** `stadtgarden.de` eintragen, beim Domain-Anbieter die DNS-Einträge für GitHub Pages setzen, danach „Enforce HTTPS“ aktivieren.
-3. Unter **Settings → Secrets and variables → Actions → Variables** `WAITLIST_ENDPOINT` anlegen (URL des Workers).
-4. Jeder Push auf `main` baut und veröffentlicht die Seite (`.github/workflows/deploy.yml`).
+1. **Settings → Pages → Source:** „GitHub Actions“.
+2. **Custom domain** `stadtgarden.de`, DNS beim Anbieter setzen, „Enforce HTTPS“ aktivieren.
+3. **Settings → Secrets and variables → Actions → Variables:** `WAITLIST_ENDPOINT` mit der Worker-URL.
+4. Jeder Push auf `main` baut und veröffentlicht (`.github/workflows/deploy.yml`).
 
-## Vor dem öffentlichen Start (Launch-Blocker)
+## Vor dem öffentlichen Start
 
-- [ ] **Impressum** vollständig ausfüllen (alle gelb markierten Felder).
-- [ ] **Datenschutzerklärung** ergänzen und rechtlich prüfen lassen (Verantwortlicher, Drittlandübermittlung GitHub/Cloudflare, Anschrift Brevo, Stand).
-- [ ] **Brevo** einrichten: Liste, Double-Opt-in-Vorlage, Absenderdomain, AV-Vertrag.
-- [ ] **Worker** deployen, `WAITLIST_ENDPOINT` setzen, Anmeldung einmal komplett testen (Mail, Bestätigungslink, `/bestaetigt/`, Abmeldelink).
+- [ ] **Impressum** vollständig ausfüllen (gelb markierte Felder).
+- [ ] **Datenschutzerklärung** ergänzen und rechtlich prüfen lassen.
+- [ ] **Brevo + Worker** einrichten, `WAITLIST_ENDPOINT` setzen, Anmeldung komplett testen (Mail, Bestätigungslink, `/bestaetigt/`, Abmeldung).
 - [ ] Rate-Limiting-Syntax in `waitlist-worker/wrangler.toml` mit der aktuellen Cloudflare-Doku abgleichen.
-- [ ] Wortzeichen und Favicon sind vorläufig; bei Bedarf durch das endgültige Logo ersetzen.
-- [ ] Optional: echte Fotos eines Prototyps ergänzen; die jetzigen sind KI-Konzeptbilder in begrenzter Auflösung (größtes Bild 1122 px breit).
+- [ ] Bilder in höherer Auflösung und mit einheitlicher Montage nachziehen (siehe `docs/bilder.md`).
 
 ## Was bewusst nicht behauptet wird
 
-Keine Angaben zu Preis, Termin, Maßen, Tagen ohne Gießen, Wetter- oder Absturzsicherheit, Schimmelfreiheit oder „passt in jedes Fenster“. Mechanismen sind als „soll“, „geplant“ oder „Konzept“ formuliert; im 3D-Bereich steht dauerhaft „Konzeptmodell, keine finale Konstruktion“, und der Wasserweg-Text nennt, wovon Feuchtigkeitsmanagement tatsächlich abhängt.
+Keine Angaben zu Preis, Termin, Maßen, Tagen ohne Gießen, Wetter- oder Absturzsicherheit, Schimmelfreiheit, Wartungsfreiheit, Nachhaltigkeit oder „passt in jedes Fenster“. Die Montage steht immer mit „an geeigneten Fenstern“, Reservoir und Kapillarbewässerung als „geplant“ bzw. mit „soll“; im 3D-Bereich steht dauerhaft „Konzeptionelle Darstellung · Produkt in Entwicklung“.
 
-## Design-Notizen und Skill-Prüfungen
+## Wie die Design-Skills eingesetzt wurden
 
-**Richtung:** warmes Weiß, Porzellan, Anthrazit, Waldgrün; Familjen Grotesk (schwedische Grotesk) für Überschriften, Instrument Sans für Text. Kapselförmige Buttons greifen die Produktform auf, Fotos bleiben rechteckig und architektonisch. Ein gemeinsames 12-Spalten-Raster, alle Splits teilen dieselbe Linie (Spalte 8).
-
-**Taste Skill:** Seitentyp „product“ (physisches Produkt, Fotos führen). Palette und Schrift kommen aus dem Briefing statt aus dem Taste-Deal (Briefing hat Vorrang; der Deal schlug „moss-sand“ und Bricolage Grotesque vor, die eher verspielt wirken). Gedealter Moment: `word-highlight` im Konzept-Abschnitt. Hero tritt einmal beim Laden auf, sonst keine Scroll-Fades. Finish-Gate: `GATE: OPEN` nach drei Runden; offen sind vor allem Regeln zur exakten Bildschirmhöhe jedes Abschnitts (der 3D-Bereich ist bewusst länger) und Strukturerwartungen an Klassennamen des Taste-Kits (`header.nav`, `footer.closing`), die dieses Next.js-Projekt nicht verwendet. Begründete Ausnahmen stehen in `.taste-skill/waivers.json` (nicht im Repo, lokal).
-
-**Impeccable (craft floor):** keine Kicker über Überschriften, keine Karten-Raster, keine Verläufe; Nummern 01–03 nur, weil das Briefing sie verlangt. Kontraste geprüft (Fließtext 6,6:1, Platzhalter 4,8:1, Text auf Waldgrün ≥ 5,3:1). Browserflächen gestaltet: Markierung, Cursorfarbe, Fokusring, Scrollbar, Unterstreichungen, tabellarische Ziffern. Zustände: Hover, Laden, Fehler, Erfolg, leer.
-
-**Emil Kowalski (Bewegung):**
-
-| Vorher (typisch) | Jetzt | Warum |
-| --- | --- | --- |
-| Fade-in bei jedem Abschnitt | nur Hero-Auftritt + ein Scroll-Moment | wird nicht abgenutzt, die Seite bleibt ruhig |
-| `ease-in` / Standardkurven | `cubic-bezier(0.23, 1, 0.32, 1)` | sofortige Reaktion, klarer Auslauf |
-| Buttons ohne Druckgefühl | `scale(0.97)` bei `:active`, 160 ms | das Interface „hört zu“ |
-| Hover auch auf Touch | Hover nur unter `(hover: hover) and (pointer: fine)` | keine Fehlauslöser beim Tippen |
-| Keyframes für 3D-Übergänge | gedämpfte, unterbrechbare Interpolation | Richtungswechsel ohne Ruck |
-| Endlosanimation ohne Kontrolle | Wasserweg-Schleife ~3,4 s mit Pause-Knopf | Kontrolle bleibt bei der Person |
-| volle Bewegung immer | `prefers-reduced-motion`: alles statisch, Partikel ruhen | Rücksicht auf Bewegungsempfindlichkeit |
+- **Frontend Design (Anthropic):** Token-Plan vor dem Bauen, eine mutige Stelle (das große Produkt auf Moos), keine Versalien-Labels, keine 01/02/03-Nummern (die drei Vorteile sind keine Abfolge), keine Pfeile in Buttons, keine Kartenreihen.
+- **UI/UX Pro Max:** Storytelling-Muster mit CTA nach jedem Argument und großer Schluss-CTA, sichtbare Formular-Labels, 44-px-Klickflächen (Formular 64 px), AVIF/WebP mit festen Maßen gegen Layout-Sprünge, progressive Offenlegung im 3D-Bereich. Die vorgeschlagene Farbe/Schrift (Grau-Gold, Cinzel) passte nicht zum Briefing und wurde verworfen.
+- **Taste:** Seitentyp „product“, Fotos führen, das Produkt in jedem Abschnitt in einem anderen Bild, ein Auftritt beim Laden, keine Fade-ins pro Abschnitt. `copy-lint` meldet die vielen Zwei-Satz-Überschriften („X. Y.“) als Stilmittel-Häufung; sie sind vorgegebener Kampagnentext und bleiben bewusst.
+- **Impeccable:** Kontraste gemessen (Text auf Moos ≥ 4,9 : 1 an der hellsten Stelle hinter dem Text, Lime/Wald 9 : 1, Elfenbein-Text auf Wald 8,4 : 1, Platzhalter 4,6 : 1), gestaltete Browserflächen (Markierung in Lime, Fokusringe), alle Formularzustände geprüft.
+- **Emil Kowalski:** ease-out für Auftritte, Buttons `scale(0.97)` beim Drücken, Hover nur bei feinem Zeiger, unterbrechbare gedämpfte Bewegungen im 3D-Modell, Pause-Knopf für die Wasserweg-Schleife, sanftes Scrollen zum Formular nur ohne `prefers-reduced-motion`. Im Scroll-Film: Zweck „Erklärung“, Bewegung im Bild mit ease-in-out, Beschriftungen zeichnen erst die Linie und heben dann den Text.
+- **GSAP (offizielle Skills):** `useGSAP` mit Scope und automatischem Aufräumen, ScrollTrigger nur auf der Timeline, `gsap.matchMedia` für Bildschirmgrößen und reduzierte Bewegung, keine Marker im Code.

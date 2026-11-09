@@ -3,8 +3,13 @@
 /**
  * Interaktives KONZEPTMODELL des Pflanzkastens (React Three Fiber).
  * Prozedurale Näherung an die Konzeptbilder – keine Produktions-CAD.
- * Rendert nur bei Bedarf (frameloop="demand"): Bewegung entsteht nur, wenn jemand etwas tut,
- * und während der Wasserweg-Animation läuft.
+ * Rendert nur bei Bedarf (frameloop="demand").
+ *
+ * Zwei Treiber, nie gleichzeitig:
+ *   film   – die GSAP-Timeline (ScrollTrigger, scrub) schreibt in `film`; jedes Bauteil liest
+ *            daraus seinen Versatz, die Kamera ihre Position. Keine Eingaben, keine eigenen Uhren.
+ *   manual – Tabs, Regler, Ziehen und Drehen wie bisher.
+ * Nur die Bauteil-Gruppen selbst schreiben ihre Transformationen (eine Quelle je Objekt).
  */
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -21,15 +26,33 @@ import {
   MODEL_Y,
   closedBody,
   flatPlate,
+  roundedRectShape,
   holeTexture,
   leafGeometry,
   openVessel,
   rng,
   smallLeafGeometry,
   soilBlock,
+  strapGeometry,
   weaveTexture,
 } from "./geometry";
 import { PART_BY_ID, type Mode, type PartId } from "./parts";
+import { PARKED, TAG_ORDER, type FilmState, type FilmTagId } from "./film";
+
+export type Driver = "film" | "manual";
+type Layout = "wide" | "medium" | "narrow";
+
+/**
+ * Platzbedarf im Film (px): rechts die Beschriftungsspalte, oben das Hinweis-Schild,
+ * unten links der Kapiteltext (auf dem Handy liegt er unter der Szene).
+ */
+const ROOM: Record<Layout, { gap: number; col: number; pad: number; top: number; capW: (w: number) => number; capH: number }> = {
+  wide: { gap: 44, col: 240, pad: 24, top: 72, capW: (w) => 28 + Math.min(300, 0.26 * w) + 28, capH: 184 },
+  medium: { gap: 36, col: 224, pad: 20, top: 72, capW: (w) => 28 + Math.min(300, 0.4 * w) + 24, capH: 196 },
+  narrow: { gap: 24, col: 120, pad: 10, top: 90, capW: () => 0, capH: 0 },
+};
+export type Quality = "high" | "low";
+export type SceneBridge = { invalidate?: () => void };
 
 export type SceneProps = {
   mode: Mode;
@@ -44,6 +67,17 @@ export type SceneProps = {
   onReady: () => void;
   /** DOM-Ebene über dem Canvas, in die die Beschriftungen gerendert werden */
   labels: React.RefObject<HTMLDivElement | null>;
+  /** wer gerade die Bauteile bewegt */
+  driver: Driver;
+  /** Zustand des Scroll-Films (wird von GSAP beschrieben, hier nur gelesen) */
+  film: FilmState;
+  /** Ebene mit den Film-Beschriftungen (Führungslinien) */
+  filmTags: React.RefObject<HTMLDivElement | null>;
+  /** gibt dem Aufrufer invalidate(), damit GSAP-Updates sofort einen Frame anstoßen */
+  bridge: React.MutableRefObject<SceneBridge>;
+  quality: Quality;
+  /** schmaler Bildschirm: Modell im Film weiter links, Beschriftungen kompakter */
+  layout: Layout;
 };
 
 // ── Abgeleitete Maße ──────────────────────────────────────────────────────
@@ -57,24 +91,29 @@ const PLATE_Y = 0.31;
 const RES_TOP = 0.285;
 const WATER_TOP = 0.2;
 const WICK_X = 0.62;
-const WICK = { w: 0.15, bottom: 0.06, top: 0.5, z: -0.03, th: 0.012 };
+const WICK = { w: 0.15, bottom: 0.045, top: 0.5, z: -0.03, th: 0.012 };
 const SHAFT = { x: 1.02, z: -0.04, r: 0.045, bottom: 0.14, top: 0.83 };
 const ROD = { y: H + 0.08, z: -B, r: 0.032 };
 const HOOK_X = 0.78;
+const STRAP = { w: 0.18, th: 0.016 };
 const WALL_INNER = 1.67;
 
 const PRESETS: Record<Mode, { pos: [number, number, number]; target: [number, number, number] }> = {
   produkt: { pos: [2.5, 1.05, 4.9], target: [0, 0, 0] },
-  explosion: { pos: [3.7, 1.9, 7.3], target: [0, 0.32, 0] },
+  explosion: { pos: [3.9, 2.0, 7.8], target: [0, 0.3, 0] },
   wasser: { pos: [0.9, 0.7, 4.5], target: [0, 0.1, 0] },
   schnitt: { pos: [1.7, 1.05, 4.8], target: [0, 0.12, 0] },
   montage: { pos: [1.1, 0.9, 6.6], target: [0, 0.15, 0] },
 };
 const MIN_DIST = 2.8;
-const MAX_DIST = 9.5;
+const MAX_DIST = 10;
 
 // ── Gemeinsamer Zustand ───────────────────────────────────────────────────
-type Ctx = SceneProps & { clip: THREE.Plane };
+type Ctx = SceneProps & {
+  clip: THREE.Plane;
+  /** zentrale Referenzen auf die Bauteil-Gruppen (für Schatten, Beschriftungen) */
+  parts: React.MutableRefObject<Partial<Record<PartId, THREE.Group>>>;
+};
 const SceneCtx = createContext<Ctx | null>(null);
 const useScene = () => useContext(SceneCtx)!;
 
@@ -114,6 +153,8 @@ function useMaterials() {
       side: THREE.DoubleSide,
       clippingPlanes: clipping,
     });
+    // eigene Instanz für die Schale: im Film bleibt sie ganz, nur die Tabs schneiden sie
+    const shell = plastic.clone();
     const insert = new THREE.MeshStandardMaterial({ color: "#2b2e2a", roughness: 0.72, side: THREE.DoubleSide, clippingPlanes: clipping });
     const soil = new THREE.MeshStandardMaterial({ color: "#3a2c22", roughness: 1, side: THREE.DoubleSide, clippingPlanes: clipping });
     const reservoir = new THREE.MeshPhysicalMaterial({
@@ -137,7 +178,7 @@ function useMaterials() {
     });
     const holes = holeTexture();
     const plate = new THREE.MeshStandardMaterial({
-      color: "#ecebe5",
+      color: "#dedcd4",
       roughness: 0.6,
       alphaMap: holes,
       alphaTest: 0.5,
@@ -145,13 +186,14 @@ function useMaterials() {
       clippingPlanes: clipping,
     });
     const wick = new THREE.MeshStandardMaterial({ color: "#ffffff", map: weaveTexture(), roughness: 1, clippingPlanes: clipping });
-    const rubber = new THREE.MeshStandardMaterial({ color: "#3a3d39", roughness: 0.9 });
+    const rubber = new THREE.MeshStandardMaterial({ color: "#e4e1d9", roughness: 0.85 });
     const rod = new THREE.MeshPhysicalMaterial({ color: "#f4f2ed", roughness: 0.25, clearcoat: 0.6, clearcoatRoughness: 0.3 });
     const gauge = new THREE.MeshStandardMaterial({ color: "#dedbd3", roughness: 0.5, clippingPlanes: clipping });
     const gaugeWater = new THREE.MeshStandardMaterial({ color: "#7db4cc", roughness: 0.3, emissive: "#2e6f8c", emissiveIntensity: 0.15, clippingPlanes: clipping });
     gaugeWater.userData.keepEmissive = true;
     const hole = new THREE.MeshStandardMaterial({ color: "#575a55", roughness: 0.8, clippingPlanes: clipping });
-    return { plastic, insert, soil, reservoir, water, plate, wick, rubber, rod, gauge, gaugeWater, hole };
+    const plateRim = new THREE.MeshStandardMaterial({ color: "#e8e6df", roughness: 0.55, clippingPlanes: clipping });
+    return { plastic, shell, insert, soil, reservoir, water, plate, plateRim, wick, rubber, rod, gauge, gaugeWater, hole };
   }, [clip]);
 }
 
@@ -166,31 +208,54 @@ function Part({ id, follow, children }: { id: PartId; follow?: PartId; children:
   const { invalidate, controls } = useThree() as unknown as { invalidate: () => void; controls: OrbitControlsImpl | null };
   const info = PART_BY_ID[id];
   const pullId = follow ?? id;
-  const active = s.mode === "explosion";
+  const filmDriven = s.driver === "film";
+  const active = !filmDriven && s.mode === "explosion";
   const e = active ? s.explode : 0;
   const p = active ? (s.pulled[pullId] ?? 0) : 0;
-  const target = useMemo(
+  const manualTarget = useMemo(
     () => new THREE.Vector3(...info.explode).multiplyScalar(e).add(new THREE.Vector3(...info.pull).multiplyScalar(p)),
     [info, e, p],
   );
+  const filmTarget = useMemo(() => new THREE.Vector3(), []);
+
+  useLayoutEffect(() => {
+    const parts = s.parts.current;
+    if (ref.current) parts[id] = ref.current;
+    return () => {
+      delete parts[id];
+    };
+  }, [id, s.parts]);
 
   useFrame((_, dt) => {
     const g = ref.current;
     if (!g) return;
+    // Im Film kommt der Versatz allein aus der Timeline; manuell aus Tabs/Regler/Ziehen.
+    const target = filmDriven ? filmTarget.set(0, s.film.off[id], 0) : manualTarget;
+    // geparkte Teile (weit außerhalb des Bildes) gar nicht erst zeichnen
+    const show = !filmDriven || Math.abs(g.position.y) < PARKED;
+    if (g.visible !== show) {
+      g.visible = show;
+      invalidate();
+    }
     if (s.reduced) {
-      g.position.copy(target);
+      if (!g.position.equals(target)) {
+        g.position.copy(target);
+        invalidate();
+      }
       return;
     }
-    const lambda = 6.5;
+    // Im Film folgt das Teil fast unmittelbar (der Scrub glättet schon); der Rest fängt nur
+    // Sprünge beim Wechsel zwischen Film und Tabs ab.
+    const lambda = filmDriven ? 18 : 6.5;
     g.position.set(
       damp(g.position.x, target.x, lambda, dt),
       damp(g.position.y, target.y, lambda, dt),
       damp(g.position.z, target.z, lambda, dt),
     );
-    if (g.position.distanceToSquared(target) > 1e-7) invalidate();
+    if (g.position.distanceToSquared(target) > 1e-8) invalidate();
     else g.position.copy(target);
   });
-  useEffect(() => invalidate(), [target, invalidate]);
+  useEffect(() => invalidate(), [manualTarget, filmDriven, invalidate]);
 
   // Hover-Hervorhebung über einen dezenten Emissive-Ton
   const hot = active && s.hovered === pullId;
@@ -257,12 +322,12 @@ function Part({ id, follow, children }: { id: PartId; follow?: PartId; children:
 
 // ── Beschriftungen ────────────────────────────────────────────────────────
 const LABEL_MODES: Record<PartId, Mode[]> = {
-  shell: ["explosion", "schnitt"],
-  insert: ["explosion", "schnitt"],
-  reservoir: ["explosion", "schnitt"],
-  wick: ["explosion", "schnitt"],
-  plate: ["explosion", "schnitt"],
-  service: ["explosion", "schnitt"],
+  shell: ["explosion"],
+  insert: ["explosion"],
+  reservoir: ["explosion"],
+  wick: ["explosion"],
+  plate: [],
+  service: [],
   indicator: ["explosion"],
   mount: ["explosion"],
 };
@@ -293,7 +358,7 @@ function Tag({
 function PartTag({ id, position, side }: { id: PartId; position: [number, number, number]; side?: "left" | "right" }) {
   const s = useScene();
   const info = PART_BY_ID[id];
-  const visible = LABEL_MODES[id].includes(s.mode) && (s.mode !== "explosion" || s.explode > 0.45);
+  const visible = s.driver === "manual" && LABEL_MODES[id].includes(s.mode) && (s.mode !== "explosion" || s.explode > 0.45);
   return (
     <Tag position={position} visible={visible} hot={s.hovered === id} side={side}>
       <b>{info.letter}</b>
@@ -308,7 +373,7 @@ function Shell() {
   const geo = useMemo(() => openVessel({ A, B, H, Rx, Rz, rc }, t), []);
   return (
     <Part id="shell">
-      <mesh geometry={geo} material={m.plastic} />
+      <mesh geometry={geo} material={m.shell} />
       {/* Überlauf am rechten Ende (Konzept) */}
       <mesh position={[A - 0.024, RES_TOP - 0.03, 0]} rotation={[0, 0, Math.PI / 2]} material={m.hole}>
         <cylinderGeometry args={[0.022, 0.022, 0.012, 20]} />
@@ -359,9 +424,20 @@ function Insert() {
 function Plate() {
   const m = useMats();
   const geo = useMemo(() => flatPlate(INSERT_W + 0.02, INSERT.halfD * 2 + 0.02, 0.22), []);
+  // umlaufender, voller Rand: macht die dünne Lochplatte auch von der Seite lesbar
+  const rim = useMemo(() => {
+    const w = INSERT_W + 0.02;
+    const d = INSERT.halfD * 2 + 0.02;
+    const outer = roundedRectShape(w, d, 0.22);
+    outer.holes.push(roundedRectShape(w - 0.05, d - 0.05, 0.2));
+    const g = new THREE.ExtrudeGeometry(outer, { depth: 0.016, bevelEnabled: false, curveSegments: 8 });
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, []);
   return (
     <Part id="plate">
       <mesh geometry={geo} material={m.plate} position={[INSERT_CX, PLATE_Y, 0]} />
+      <mesh geometry={rim} material={m.plateRim} position={[INSERT_CX, PLATE_Y - 0.008, 0]} />
       <PartTag id="plate" position={[0.25, PLATE_Y + 0.02, 0.3]} />
     </Part>
   );
@@ -390,11 +466,12 @@ function Reservoir() {
 function Wicks() {
   const m = useMats();
   const s = useScene();
-  const wet = useDamped(s.mode === "wasser" ? 1 : 0, 5, s.reduced);
+  const manual = s.driver === "manual";
+  const wet = useDamped(manual && s.mode === "wasser" ? 1 : 0, 5, s.reduced);
   const dry = useMemo(() => new THREE.Color("#ffffff"), []);
   const wetC = useMemo(() => new THREE.Color("#bcdbe8"), []);
   useFrame(() => {
-    m.wick.color.copy(dry).lerp(wetC, wet.current);
+    m.wick.color.copy(dry).lerp(wetC, manual ? wet.current : s.film.wet);
   });
   const h = WICK.top - WICK.bottom;
   return (
@@ -405,6 +482,7 @@ function Wicks() {
         </mesh>
       ))}
       <PartTag id="wick" position={[-WICK_X - 0.09, WICK.top - 0.1, 0.02]} side="left" />
+      <WaterFlow />
     </Part>
   );
 }
@@ -433,12 +511,26 @@ function Service() {
 function Mount() {
   const m = useMats();
   const s = useScene();
-  const half = useDamped(s.mode === "montage" ? WALL_INNER - 0.05 : 1.5, 3.2, s.reduced);
-  const arrows = useDamped(s.mode === "montage" ? 1 : 0, 4, s.reduced);
+  const montage = s.driver === "manual" && s.mode === "montage";
+  const half = useDamped(montage ? WALL_INNER - 0.05 : 1.5, 3.2, s.reduced);
+  const arrows = useDamped(montage ? 1 : 0, 4, s.reduced);
   const tube = useRef<THREE.Mesh>(null);
   const ends = useRef<(THREE.Object3D | null)[]>([]);
   const arrowRefs = useRef<(THREE.Object3D | null)[]>([]);
-  const hookArc = useMemo(() => new THREE.TorusGeometry(ROD.r + 0.016, 0.007, 8, 28, Math.PI), []);
+  // Breite, flache Halterung: Lasche hinter der Stange, Bogen darüber, Band innen an der Rückwand hinab
+  const strap = useMemo(() => {
+    const R = ROD.r + STRAP.th / 2 + 0.004;
+    const pts: [number, number][] = [
+      [ROD.z - R, ROD.y - 0.075],
+      [ROD.z - R, ROD.y - 0.02],
+    ];
+    for (let i = 0; i <= 18; i++) {
+      const a = Math.PI - (i / 18) * Math.PI;
+      pts.push([ROD.z + R * Math.cos(a), ROD.y + R * Math.sin(a)]);
+    }
+    pts.push([ROD.z + R, ROD.y - 0.06], [ROD.z + R, 0.47]);
+    return strapGeometry(pts, STRAP.w, STRAP.th);
+  }, []);
 
   useFrame(() => {
     const L = half.current;
@@ -494,35 +586,27 @@ function Mount() {
           >
             <mesh rotation={[0, 0, side * -Math.PI / 2]} position={[side * 0.1, 0, 0]}>
               <coneGeometry args={[0.035, 0.08, 20]} />
-              <meshStandardMaterial color="#405B47" roughness={0.5} />
+              <meshStandardMaterial color="#173F35" roughness={0.5} />
             </mesh>
             <mesh rotation={[0, 0, Math.PI / 2]}>
               <cylinderGeometry args={[0.009, 0.009, 0.14, 12]} />
-              <meshStandardMaterial color="#405B47" roughness={0.5} />
+              <meshStandardMaterial color="#173F35" roughness={0.5} />
             </mesh>
           </group>
         ))}
       </group>
       {[-HOOK_X, HOOK_X].map((x) => (
-        <group key={x} position={[x, 0, 0]}>
-          <mesh geometry={hookArc} material={m.rod} position={[0, ROD.y, ROD.z]} rotation={[0, Math.PI / 2, 0]} scale={[1, 1, 5]} />
-          <mesh material={m.rod} position={[0, (ROD.y + 0.5) / 2, ROD.z + ROD.r + 0.016]}>
-            <boxGeometry args={[0.07, ROD.y - 0.5, 0.014]} />
-          </mesh>
-          <mesh material={m.rod} position={[0, ROD.y, ROD.z - ROD.r - 0.016]}>
-            <boxGeometry args={[0.07, 0.06, 0.014]} />
-          </mesh>
-        </group>
+        <mesh key={x} geometry={strap} material={m.rod} position={[x, 0, 0]} />
       ))}
       <PartTag id="mount" position={[0.55, ROD.y + 0.1, ROD.z]} />
-      <Tag position={[-HOOK_X - 0.05, ROD.y - 0.2, ROD.z + 0.05]} visible={s.mode === "montage"} side="left">
-        Haken
+      <Tag position={[-HOOK_X - STRAP.w / 2, ROD.y - 0.2, ROD.z + 0.05]} visible={montage} side="left">
+        Halterung
       </Tag>
-      <Tag position={[0.15, ROD.y + 0.14, ROD.z]} visible={s.mode === "montage"}>
-        Klemmstange, verstellbar
+      <Tag position={[0.15, ROD.y + 0.14, ROD.z]} visible={montage}>
+        Spannstange, verstellbar
       </Tag>
-      <Tag position={[WALL_INNER - 0.55, ROD.y - 0.2, ROD.z + 0.1]} visible={s.mode === "montage"}>
-        Gummifuß
+      <Tag position={[WALL_INNER - 0.55, ROD.y - 0.2, ROD.z + 0.1]} visible={montage}>
+        Endkappe an der Laibung
       </Tag>
     </Part>
   );
@@ -541,8 +625,8 @@ function Plants() {
 
   const data = useMemo(() => {
     const r = rng(7);
-    const green = ["#3d6a33", "#4a7a38", "#578a3d", "#679a45"].map((c) => new THREE.Color(c));
-    const varieg = ["#93ad58", "#a6b968", "#b5c27a"].map((c) => new THREE.Color(c));
+    const green = ["#3f7a2c", "#4f8c32", "#5f9c38", "#72ac3e"].map((c) => new THREE.Color(c));
+    const varieg = ["#a9c24a", "#bccf58", "#cbd86a"].map((c) => new THREE.Color(c));
     const big: { m: THREE.Matrix4; c: THREE.Color }[] = [];
     const small: { m: THREE.Matrix4; c: THREE.Color }[] = [];
     const stems: THREE.BufferGeometry[] = [];
@@ -604,7 +688,7 @@ function Plants() {
       [0.7, 0.02, 0.92],
       [0.82, -0.05, 0.58],
     ];
-    const fineGreen = ["#4f7438", "#5d8240", "#6b8f48"].map((c) => new THREE.Color(c));
+    const fineGreen = ["#5d8e34", "#6c9c3a", "#7dab42"].map((c) => new THREE.Color(c));
     for (const [x0, dx, len] of fine) {
       const c = strand(x0, dx, len, B - 0.02);
       stems.push(new THREE.TubeGeometry(c, 40, 0.003, 4));
@@ -664,12 +748,14 @@ function WaterFlow() {
   const ref = useRef<THREE.InstancedMesh>(null);
   const time = useRef(0);
   const { invalidate } = useThree();
-  const vis = useDamped(s.mode === "wasser" ? 1 : 0, 5, s.reduced);
+  const manual = s.driver === "manual";
+  const vis = useDamped(manual && s.mode === "wasser" ? 1 : 0, 5, s.reduced);
+  const count = s.quality === "low" ? 40 : DROPS;
   const seeds = useMemo(() => {
     const r = rng(42);
-    return Array.from({ length: DROPS }, (_, i) => ({
+    return Array.from({ length: count }, (_, i) => ({
       side: i % 2 ? 1 : -1,
-      phase: i / DROPS + r() * 0.01,
+      phase: i / count + r() * 0.01,
       x0: (r() - 0.5) * 0.7,
       z0: (r() - 0.5) * 0.2,
       jx: (r() - 0.5) * 0.11,
@@ -677,10 +763,10 @@ function WaterFlow() {
       sy: 0.04 + r() * 0.2,
       sz: -0.04 - r() * 0.16,
     }));
-  }, []);
+  }, [count]);
   const geo = useMemo(() => new THREE.SphereGeometry(0.014, 10, 8), []);
   const mat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#58aad3", emissive: "#2a83b0", emissiveIntensity: 0.55, roughness: 0.2 }),
+    () => new THREE.MeshStandardMaterial({ color: "#4aa8d3", emissive: "#1f86b8", emissiveIntensity: 0.6, roughness: 0.2 }),
     [],
   );
   const o = useMemo(() => new THREE.Object3D(), []);
@@ -688,14 +774,17 @@ function WaterFlow() {
   useFrame((_, dt) => {
     const mesh = ref.current;
     if (!mesh) return;
-    const v = vis.current;
+    // Im Film kommen Sichtbarkeit und Phase aus der Scroll-Position (rückwärts genauso),
+    // manuell läuft eine eigene, anhaltbare Schleife.
+    const v = manual ? vis.current : s.film.flow;
     mesh.visible = v > 0.01;
     if (!mesh.visible) return;
-    const animate = s.playing && !s.reduced && s.mode === "wasser";
+    const animate = manual && s.playing && !s.reduced && s.mode === "wasser";
     if (animate) time.current += Math.min(dt, 1 / 20) / 3.4;
+    const phase = manual ? time.current : s.film.flowT;
     const ease = (x: number) => x * x * (3 - 2 * x);
     seeds.forEach((d, i) => {
-      const u = (d.phase + time.current) % 1;
+      const u = (((d.phase + phase) % 1) + 1) % 1;
       const wx = d.side * WICK_X;
       const front = WICK.z + 0.014;
       let x: number, y: number, z: number;
@@ -725,18 +814,18 @@ function WaterFlow() {
     if (animate) invalidate();
   });
 
-  const on = s.mode === "wasser";
+  const on = manual && s.mode === "wasser";
   return (
     <group>
-      <instancedMesh ref={ref} args={[geo, mat, DROPS]} frustumCulled={false} />
+      <instancedMesh ref={ref} args={[geo, mat, count]} frustumCulled={false} />
       <Tag position={[0.5, 0.13, 0.05]} visible={on}>
         <b>1</b>Wasser im Reservoir
       </Tag>
       <Tag position={[-WICK_X - 0.09, 0.34, 0.02]} visible={on} side="left">
-        <b>2</b>Docht zieht es nach oben
+        <b>2</b>Kapillarelemente leiten es nach oben
       </Tag>
       <Tag position={[0.05, 0.68, 0.0]} visible={on}>
-        <b>3</b>Erde nimmt es auf
+        <b>3</b>Das Substrat nimmt es auf
       </Tag>
     </group>
   );
@@ -745,7 +834,7 @@ function WaterFlow() {
 // ── Montage-Umgebung: Laibung, Fensterbank, Fenster ──────────────────────
 function Surroundings() {
   const s = useScene();
-  const show = useDamped(s.mode === "montage" ? 1 : 0, 4, s.reduced);
+  const show = useDamped(s.driver === "manual" && s.mode === "montage" ? 1 : 0, 4, s.reduced);
   const group = useRef<THREE.Group>(null);
   const mats = useMemo(() => {
     const mk = (color: string, roughness: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) =>
@@ -805,29 +894,54 @@ function Surroundings() {
 }
 
 // ── Kamera ────────────────────────────────────────────────────────────────
+const DEG = Math.PI / 180;
+
 function CameraRig() {
   const s = useScene();
-  const { camera, invalidate, controls } = useThree() as unknown as {
+  const { camera, invalidate, controls, size } = useThree() as unknown as {
     camera: THREE.PerspectiveCamera;
     invalidate: () => void;
     controls: OrbitControlsImpl | null;
+    size: { width: number; height: number };
   };
+  const film = s.driver === "film";
   const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const look = useMemo(() => new THREE.Vector3(), []);
+  const want = useMemo(() => ({ pos: new THREE.Vector3(), target: new THREE.Vector3() }), []);
 
+  // Wechsel zwischen Film und Tabs: Blickpunkt übergeben, keine Restbewegung mitnehmen
   useEffect(() => {
-    const p = PRESETS[s.mode];
-    goal.current = { pos: new THREE.Vector3(...p.pos), target: new THREE.Vector3(...p.target) };
+    goal.current = null;
+    if (controls) {
+      if (film) look.copy(controls.target);
+      else {
+        controls.target.copy(look);
+        controls.update();
+      }
+    }
     invalidate();
-  }, [s.mode, invalidate]);
+  }, [film, controls, look, invalidate]);
 
   useEffect(() => {
-    if (!s.zoom.n || !controls) return;
+    if (film) return;
+    const p = PRESETS[s.mode];
+    const pos = new THREE.Vector3(...p.pos);
+    const target = new THREE.Vector3(...p.target);
+    // Explosion auf dem Handy etwas weiter weg, damit die Beschriftungen ins Bild passen
+    if (s.mode === "explosion" && s.layout === "narrow") pos.sub(target).multiplyScalar(1.22).add(target);
+    goal.current = { pos, target };
+    invalidate();
+  }, [s.mode, s.layout, film, invalidate]);
+
+  useEffect(() => {
+    if (film || !s.zoom.n || !controls) return;
     const target = controls.target.clone();
     const off = camera.position.clone().sub(target);
     const len = THREE.MathUtils.clamp(off.length() * (s.zoom.dir > 0 ? 0.82 : 1.22), MIN_DIST, MAX_DIST);
     goal.current = { pos: target.clone().add(off.setLength(len)), target };
     invalidate();
-  }, [s.zoom, controls, camera, invalidate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.zoom]);
 
   useEffect(() => {
     if (!controls) return;
@@ -838,7 +952,75 @@ function CameraRig() {
     return () => controls.removeEventListener("start", stop);
   }, [controls]);
 
+  /** Modellmitte im Bild verschieben, ohne die Perspektive zu ändern (Platz für Beschriftungen). */
+  const setOffset = (cx: number, cy: number) => {
+    const W = size.width;
+    const H = size.height;
+    const ox = (0.5 - cx) * W;
+    const oy = (0.5 - cy) * H;
+    const v = camera.view;
+    if (Math.abs(ox) < 0.5 && Math.abs(oy) < 0.5) {
+      if (v?.enabled) camera.clearViewOffset();
+      return;
+    }
+    if (!v?.enabled || v.fullWidth !== W || v.fullHeight !== H || Math.abs(v.offsetX - ox) > 0.2 || Math.abs(v.offsetY - oy) > 0.2) {
+      camera.setViewOffset(W, H, ox, oy, W, H);
+    }
+  };
+
   useFrame((_, dt) => {
+    if (film) {
+      const c = s.film.cam;
+      const az = c.az * DEG;
+      const el = c.el * DEG;
+      // Bildaufbau: den Bereich ew × eh in die freie Fläche neben Beschriftungen und Kapiteltext einpassen.
+      // Zwei Möglichkeiten (über dem Kapiteltext oder rechts daneben) – die mit dem größeren Modell gewinnt.
+      const W = size.width;
+      const H = size.height;
+      const R = ROOM[s.layout];
+      const tanV = Math.tan((camera.fov * DEG) / 2);
+      const tanH = tanV * (W / H);
+      const fill = 0.92;
+      // Handy: im Bildaufbau etwas mehr von der Seite – die Teile werden schmaler und dafür größer
+      const narrow = s.layout === "narrow";
+      const azEff = az + (narrow ? 30 * DEG * c.frame : 0);
+      const ew = c.ew * (narrow ? 1 - 0.19 * c.frame : 1);
+      const right = W - (R.gap + R.col + R.pad);
+      const fit = (rx: number, ry: number, rw: number, rh: number) => {
+        rw = Math.max(rw, 40);
+        rh = Math.max(rh, 40);
+        const d = Math.max((ew * W) / (2 * tanH * rw * fill), (c.eh * H) / (2 * tanV * rh * fill));
+        return { d, cx: (rx + rw / 2) / W, cy: (ry + rh / 2) / H };
+      };
+      const above = fit(R.pad, R.top, right - R.pad, H - R.top - Math.max(R.pad, R.capH));
+      const capW = R.capW(W);
+      const beside = capW > 0 ? fit(capW, R.top, right - capW, H - R.top - R.pad) : above;
+      const best = beside.d < above.d ? beside : above;
+      const f = c.frame;
+      const dist = c.dist + (best.d - c.dist) * f;
+      const cx = 0.5 + (best.cx - 0.5) * f;
+      const cy = 0.5 + (best.cy - 0.5) * f;
+      want.target.set(c.tx, c.ty, 0);
+      want.pos.set(c.tx + dist * Math.cos(el) * Math.sin(azEff), c.ty + dist * Math.sin(el), dist * Math.cos(el) * Math.cos(azEff));
+      if (s.reduced) {
+        camera.position.copy(want.pos);
+        look.copy(want.target);
+      } else {
+        const k = 1 - Math.exp(-18 * Math.min(dt, 1 / 20));
+        camera.position.lerp(want.pos, k);
+        look.lerp(want.target, k);
+      }
+      camera.lookAt(look);
+      if (controls) controls.target.copy(look);
+      setOffset(cx, cy);
+      if (camera.position.distanceToSquared(want.pos) > 1e-8 || look.distanceToSquared(want.target) > 1e-8) invalidate();
+      return;
+    }
+
+    if (camera.view?.enabled) {
+      camera.clearViewOffset();
+      invalidate();
+    }
     const g = goal.current;
     if (!g || !controls) return;
     if (s.reduced) {
@@ -881,11 +1063,26 @@ function ResponsiveFov() {
 }
 
 /** Schnittebene: blendet die vordere Hälfte aus (Schnitt- und Wasserweg-Ansicht). */
+/** Im Film bleiben Schale und Sichtfenster ganz; der Schnitt gilt nur für das Innenleben. */
+function ShellClip() {
+  const s = useScene();
+  const m = useMats();
+  const film = s.driver === "film";
+  useEffect(() => {
+    for (const mat of [m.shell, m.gauge, m.gaugeWater]) {
+      mat.clippingPlanes = film ? [] : [s.clip];
+      mat.needsUpdate = true;
+    }
+  }, [film, m, s.clip]);
+  return null;
+}
+
 function ClipDriver() {
   const s = useScene();
-  const cut = useDamped(s.mode === "schnitt" || s.mode === "wasser" ? 0 : 1, 4.5, s.reduced);
+  const manual = s.driver === "manual";
+  const cut = useDamped(manual && (s.mode === "schnitt" || s.mode === "wasser") ? 0 : 1, 4.5, s.reduced);
   useFrame(() => {
-    s.clip.constant = 0.02 + cut.current * 2.2;
+    s.clip.constant = 0.02 + (manual ? cut.current : s.film.clip) * 2.2;
   });
   return null;
 }
@@ -911,29 +1108,198 @@ function Model() {
         <Service />
         <Insert />
         <Mount />
-        <WaterFlow />
         <Surroundings />
+        <ShellClip />
       </group>
     </MatCtx.Provider>
   );
 }
 
+/** Kontaktschatten wandert mit der Außenschale (dem untersten Teil), damit nichts in den Boden sinkt. */
 function Shadows() {
   const s = useScene();
-  if (s.mode === "montage") return null;
-  return <ContactShadows position={[0, -1.32, 0]} scale={7} far={3.2} blur={2.6} opacity={0.32} resolution={512} color="#3d3a32" />;
+  const g = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const shell = s.parts.current.shell;
+    if (g.current && shell) g.current.position.y = Math.min(0, shell.position.y);
+  });
+  if (s.driver === "manual" && s.mode === "montage") return null;
+  return (
+    <group ref={g}>
+      <ContactShadows
+        position={[0, -1.32, 0]}
+        scale={7}
+        far={3.2}
+        blur={2.6}
+        opacity={0.38}
+        resolution={s.quality === "low" ? 256 : 512}
+        color="#21402f"
+      />
+    </group>
+  );
+}
+
+// ── Film-Beschriftungen: Punkt am Bauteil, Führungslinie, Text in einer Spalte ──
+const ANCHORS: Record<FilmTagId, { part: PartId; at: [number, number, number] }> = {
+  mount: { part: "mount", at: [1.56, ROD.y, ROD.z] },
+  insert: { part: "insert", at: [INSERT.x1, 0.56, 0.16] },
+  plate: { part: "plate", at: [INSERT.x1 + 0.01, PLATE_Y, 0.22] },
+  wick: { part: "wick", at: [WICK_X + WICK.w / 2, 0.36, WICK.z] },
+  reservoir: { part: "reservoir", at: [A - 0.1, 0.15, 0.2] },
+  shell: { part: "shell", at: [A - 0.02, 0.46, 0.22] },
+  w1: { part: "reservoir", at: [0.98, 0.1, 0] },
+  w2: { part: "wick", at: [WICK_X + WICK.w / 2, 0.33, WICK.z] },
+  w3: { part: "insert", at: [0.72, 0.62, -0.02] },
+};
+const TAG_GROUPS: FilmTagId[][] = [
+  ["mount", "insert", "plate", "wick", "reservoir", "shell"],
+  ["w1", "w2", "w3"],
+];
+
+type TagEls = { box: HTMLElement; line: SVGLineElement; dot: SVGCircleElement; h: number };
+
+function FilmLabels() {
+  const s = useScene();
+  const { camera, size } = useThree();
+  const els = useRef<Partial<Record<FilmTagId, TagEls>>>({});
+  const cleared = useRef(false);
+  const v = useMemo(() => new THREE.Vector3(), []);
+
+  useLayoutEffect(() => {
+    const root = s.filmTags.current;
+    if (!root) return;
+    const map: Partial<Record<FilmTagId, TagEls>> = {};
+    for (const id of TAG_ORDER) {
+      const box = root.querySelector<HTMLElement>(`[data-tag="${id}"]`);
+      const line = root.querySelector<SVGLineElement>(`line[data-for="${id}"]`);
+      const dot = root.querySelector<SVGCircleElement>(`circle[data-for="${id}"]`);
+      if (box && line && dot) map[id] = { box, line, dot, h: 0 };
+    }
+    els.current = map;
+  }, [s.filmTags]);
+
+  // nach Größenwechsel neu messen
+  useEffect(() => {
+    for (const e of Object.values(els.current)) if (e) e.h = 0;
+  }, [size.width, size.height, s.layout]);
+
+  const hide = (e: TagEls) => {
+    e.box.style.opacity = "0";
+    e.line.style.opacity = "0";
+    e.dot.style.opacity = "0";
+  };
+
+  useFrame(() => {
+    const E = els.current;
+    if (s.driver !== "film") {
+      if (!cleared.current) {
+        for (const e of Object.values(E)) if (e) hide(e);
+        cleared.current = true;
+      }
+      return;
+    }
+    cleared.current = false;
+    // Matrizen dieses Frames verwenden, sonst hängen die Linien einen Frame hinterher
+    camera.updateMatrixWorld();
+    const W = size.width;
+    const H = size.height;
+    const narrow = s.layout === "narrow";
+    const { pad, gap, col: colW } = ROOM[s.layout];
+    const space = narrow ? 6 : 10;
+
+    for (const group of TAG_GROUPS) {
+      if (!group.some((id) => s.film.tags[id] > 0.003)) {
+        for (const id of group) {
+          const e = E[id];
+          if (e && e.box.style.opacity !== "0") hide(e);
+        }
+        continue;
+      }
+      const items: { id: FilmTagId; ax: number; ay: number; y: number; h: number; t: number; e: TagEls }[] = [];
+      for (const id of group) {
+        const e = E[id];
+        const a = ANCHORS[id];
+        const part = s.parts.current[a.part];
+        if (!e || !part) continue;
+        part.updateWorldMatrix(true, false);
+        v.set(a.at[0], a.at[1], a.at[2]);
+        part.localToWorld(v);
+        v.project(camera);
+        if (!e.h) e.h = e.box.offsetHeight || 40;
+        items.push({ id, ax: (v.x * 0.5 + 0.5) * W, ay: (-v.y * 0.5 + 0.5) * H, y: 0, h: e.h, t: s.film.tags[id], e });
+      }
+      if (!items.length) continue;
+      // eine Spalte rechts vom Modell; alle Teile der Gruppe reservieren ihren Platz (nichts springt)
+      const colX = THREE.MathUtils.clamp(Math.max(...items.map((i) => i.ax)) + gap, pad, W - colW - pad);
+      items.sort((a, b) => a.ay - b.ay);
+      let edge = -Infinity;
+      for (const it of items) {
+        it.y = Math.max(it.ay - 11, edge + space);
+        edge = it.y + it.h;
+      }
+      let limit = H - pad;
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        if (it.y + it.h > limit) it.y = limit - it.h;
+        limit = it.y - space;
+      }
+      let top = pad;
+      for (const it of items) {
+        if (it.y < top) it.y = top;
+        top = it.y + it.h + space;
+      }
+      for (const it of items) {
+        const { e, t } = it;
+        const lineT = THREE.MathUtils.clamp(t / 0.55, 0, 1);
+        const textT = THREE.MathUtils.clamp((t - 0.3) / 0.7, 0, 1);
+        const ex = colX - 10;
+        const ey = it.y + 11;
+        const len = Math.hypot(ex - it.ax, ey - it.ay);
+        e.line.setAttribute("x1", it.ax.toFixed(1));
+        e.line.setAttribute("y1", it.ay.toFixed(1));
+        e.line.setAttribute("x2", ex.toFixed(1));
+        e.line.setAttribute("y2", ey.toFixed(1));
+        e.line.style.strokeDasharray = `${len.toFixed(1)}`;
+        e.line.style.strokeDashoffset = `${(len * (1 - lineT)).toFixed(1)}`;
+        e.line.style.opacity = lineT > 0 ? "1" : "0";
+        e.dot.setAttribute("cx", it.ax.toFixed(1));
+        e.dot.setAttribute("cy", it.ay.toFixed(1));
+        e.dot.style.opacity = THREE.MathUtils.clamp(t / 0.2, 0, 1).toFixed(3);
+        e.box.style.transform = `translate3d(${colX.toFixed(1)}px, ${(it.y + (1 - textT) * 10).toFixed(1)}px, 0)`;
+        e.box.style.opacity = textT.toFixed(3);
+      }
+    }
+  });
+  return null;
+}
+
+/** Reicht invalidate() nach draußen, damit jede Änderung der Timeline sofort einen Frame bekommt. */
+function Bridge() {
+  const s = useScene();
+  const { invalidate } = useThree();
+  useEffect(() => {
+    const b = s.bridge.current;
+    b.invalidate = invalidate;
+    return () => {
+      if (b.invalidate === invalidate) b.invalidate = undefined;
+    };
+  }, [invalidate, s.bridge]);
+  useEffect(() => invalidate(), [s.driver, invalidate]);
+  return null;
 }
 
 export default function PlanterScene(props: SceneProps) {
   const clip = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, -1), 2), []);
-  const ctx = useMemo(() => ({ ...props, clip }), [props, clip]);
+  const parts = useRef<Partial<Record<PartId, THREE.Group>>>({});
+  const ctx = useMemo(() => ({ ...props, clip, parts }), [props, clip]);
   const p = PRESETS.produkt;
+  const low = props.quality === "low";
   return (
     <Canvas
       frameloop="demand"
-      dpr={[1, 1.75]}
+      dpr={low ? [1, 1.25] : [1, 1.75]}
       camera={{ position: p.pos, fov: 30, near: 0.1, far: 60 }}
-      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+      gl={{ antialias: true, alpha: true, powerPreference: low ? "default" : "high-performance" }}
       onCreated={({ gl }) => {
         gl.localClippingEnabled = true;
         gl.toneMapping = THREE.NeutralToneMapping;
@@ -945,7 +1311,7 @@ export default function PlanterScene(props: SceneProps) {
         <hemisphereLight args={["#fffcf6", "#e2ddd2", 0.95]} />
         <directionalLight position={[-3, 5, 4]} intensity={2.2} color="#fff4e4" />
         <directionalLight position={[4, 1.5, -3]} intensity={0.55} color="#e3edf2" />
-        <Environment resolution={256} frames={1}>
+        <Environment resolution={low ? 128 : 256} frames={1}>
           <Lightformer form="rect" intensity={2.4} position={[0, 4, 1.5]} rotation-x={Math.PI / 2} scale={[8, 3, 1]} />
           <Lightformer form="rect" intensity={1.2} position={[-5, 1, 2]} rotation-y={Math.PI / 2} scale={[4, 3, 1]} />
           <Lightformer form="rect" intensity={0.7} position={[5, 1, -1]} rotation-y={-Math.PI / 2} scale={[4, 3, 1]} />
@@ -956,8 +1322,11 @@ export default function PlanterScene(props: SceneProps) {
         <CameraRig />
         <ResponsiveFov />
         <ClipDriver />
+        <FilmLabels />
+        <Bridge />
         <OrbitControls
           makeDefault
+          enabled={props.driver === "manual"}
           enablePan={false}
           enableDamping
           dampingFactor={0.08}

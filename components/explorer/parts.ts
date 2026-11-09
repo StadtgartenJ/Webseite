@@ -9,12 +9,14 @@ export type PartInfo = {
   letter: string;
   name: string;
   text: string;
-  /** Versatz in der Explosionsansicht (Modelleinheiten) */
+  /** Versatz in der Explosionsansicht (Modelleinheiten) – gleiche Werte wie EXPLODED im Scroll-Film */
   explode: [number, number, number];
   /** Richtung, in die das Teil beim Herausziehen wandert */
   pull: [number, number, number];
   /** kann einzeln herausgezogen werden */
   draggable: boolean;
+  /** erscheint in der Bauteil-Liste und als Beschriftung */
+  listed: boolean;
 };
 
 export const PARTS: PartInfo[] = [
@@ -22,122 +24,121 @@ export const PARTS: PartInfo[] = [
     id: "shell",
     letter: "A",
     name: "Außenschale",
-    text: "Die sichtbare Kapsel aus mattweißem Kunststoff. Sie trägt alle anderen Teile.",
-    explode: [0, -0.78, 0],
+    text: "Eine klare, weich gerundete Form, die sich harmonisch in moderne Architektur einfügen soll.",
+    explode: [0, -1.05, 0],
     pull: [0, -0.5, 0.35],
     draggable: true,
+    listed: true,
   },
   {
     id: "insert",
     letter: "B",
     name: "Pflanzeinsatz",
-    text: "Herausnehmbare Schale für Erde und Pflanzen. Geplant mit Schlitzen, damit Luft an die Wurzeln kommt.",
-    explode: [0, 0.86, 0],
+    text: "Ein herausnehmbarer Einsatz mit Platz für Substrat und Wurzeln.",
+    explode: [0, 0.8, 0],
     pull: [0, 0.6, 0.2],
     draggable: true,
+    listed: true,
   },
   {
     id: "reservoir",
     letter: "C",
     name: "Wasserreservoir",
-    text: "Ein geschlossener Tank im unteren Teil. Er hält einen Wasservorrat getrennt von der Erde.",
-    explode: [0, 0.12, 0],
+    text: "Ein integrierter Speicher für die geplante passive Wasserversorgung.",
+    explode: [0, -0.14, 0],
     pull: [0, 0, 0.8],
     draggable: true,
+    listed: true,
   },
   {
     id: "wick",
     letter: "D",
-    name: "Kapillarelement",
-    text: "Zwei Dochte aus saugfähigem Material ziehen Wasser nach oben, so wie Küchenpapier, das man in ein Glas Wasser hält.",
-    explode: [0, 0.3, 0],
+    name: "Kapillarelemente",
+    text: "Sie sollen Feuchtigkeit aus dem Reservoir in Richtung Pflanzsubstrat transportieren.",
+    explode: [0, 0.08, 0],
     pull: [0, 0.15, 0.75],
     draggable: true,
-  },
-  {
-    id: "plate",
-    letter: "E",
-    name: "Trennplatte",
-    text: "Eine gelochte Platte hält die Erde über dem Reservoir und lässt Feuchtigkeit und Luft durch.",
-    explode: [0, 0.56, 0],
-    pull: [0, 0.1, 0.75],
-    draggable: true,
-  },
-  {
-    id: "service",
-    letter: "F",
-    name: "Einfüll- und Luftweg",
-    text: "Ein schmaler Schacht an der Seite zum Nachfüllen, der auch Luft ins Reservoir lässt. Ein Überlauf soll verhindern, dass sich bei Regen zu viel Wasser staut.",
-    explode: [0.38, 0.42, 0],
-    pull: [0.6, 0.1, 0],
-    draggable: true,
+    listed: true,
   },
   {
     id: "indicator",
-    letter: "G",
+    letter: "E",
     name: "Füllstandsanzeige",
-    text: "Ein schmales Sichtfenster vorne zeigt, wie viel Wasser noch im Reservoir ist.",
-    explode: [0, -0.78, 0],
+    text: "Ein dezentes Sichtfenster zeigt den Wasserstand im Reservoir.",
+    explode: [0, -1.05, 0],
     pull: [0, -0.5, 0.35],
     draggable: false,
+    listed: true,
   },
   {
     id: "mount",
-    letter: "H",
-    name: "Klemmstange und Haken",
-    text: "Eine verstellbare Stange mit Gummifüßen spannt sich zwischen die Seitenwände der Fensterlaibung. Zwei Haken tragen den Kasten.",
-    explode: [0, 1.48, 0],
+    letter: "F",
+    name: "Klemmsystem",
+    text: "Eine horizontale Spannstange und zwei Halterungen bilden das geplante Befestigungssystem.",
+    explode: [0, 1.35, 0],
     pull: [0, 0.45, -0.3],
     draggable: true,
+    listed: true,
+  },
+  {
+    id: "plate",
+    letter: "",
+    name: "Trennplatte",
+    text: "",
+    explode: [0, 0.26, 0],
+    pull: [0, 0.1, 0.75],
+    draggable: false,
+    listed: false,
+  },
+  {
+    id: "service",
+    letter: "",
+    name: "Einfüllschacht",
+    text: "",
+    explode: [0, -0.14, 0],
+    pull: [0.6, 0.1, 0],
+    draggable: false,
+    listed: false,
   },
 ];
 
 export const PART_BY_ID = Object.fromEntries(PARTS.map((p) => [p.id, p])) as Record<PartId, PartInfo>;
 
+/** Ansichten des Modells – bewusst nur vier, in der Reihenfolge der Neugier. */
 export const MODES: { id: Mode; label: string; title: string; text: string[] }[] = [
   {
     id: "produkt",
     label: "Produkt",
-    title: "Das Objekt",
+    title: "Die fertige Form",
     text: [
-      "So soll er aussehen: eine ruhige Kapsel, vorne nur ein schmales Sichtfenster für den Wasserstand.",
-      "Zieh mit der Maus oder dem Finger, um das Modell zu drehen.",
+      "Eine weich gerundete Kapsel in Warmweiß. Vorne nur ein schmales Sichtfenster für den Wasserstand.",
+      "Dreh das Modell und sieh es dir von allen Seiten an.",
     ],
   },
   {
     id: "explosion",
-    label: "Explosion",
-    title: "Teil für Teil",
+    label: "Innenleben",
+    title: "Das Innenleben",
     text: [
-      "Zieh einzelne Teile mit der Maus oder dem Finger heraus, oder nutz den Regler.",
-      "„Zusammensetzen“ bringt alles zurück an seinen Platz.",
+      "Zieh einzelne Teile heraus oder nutze den Regler. So siehst du, wie Einsatz, Reservoir und Kapillarelemente zusammenspielen.",
     ],
   },
   {
     id: "wasser",
     label: "Wasserweg",
-    title: "Wasser von unten",
+    title: "Der Weg des Wassers",
     text: [
-      "Das Reservoir liegt unter der Erde. Die Dochte saugen Wasser nach oben, und das Substrat nimmt es auf, sobald es trockener ist als der Docht.",
-      "So der Plan. Wie gleichmäßig das klappt und wie sich Staunässe und Schimmel vermeiden lassen, hängt von Substrat, Belüftung, Reservoirform und Dochtmaterial ab. Genau das testen wir gerade.",
-    ],
-  },
-  {
-    id: "schnitt",
-    label: "Schnitt",
-    title: "Ein Blick hinein",
-    text: [
-      "Der Schnitt zeigt die Schichten von oben nach unten: Pflanzen und Erde im Einsatz, darunter die gelochte Trennplatte, ganz unten das Reservoir.",
-      "Seitlich liegt der Schacht zum Nachfüllen.",
+      "Unten liegt das Reservoir. Kapillarelemente sollen das Wasser nach oben ins Substrat leiten, sobald die Erde trockener wird.",
+      "Wie gut das im Alltag funktioniert, hängt auch von Erde, Pflanzen und Standort ab. Genau das testen wir gerade.",
     ],
   },
   {
     id: "montage",
     label: "Montage",
-    title: "Ohne Bohren",
+    title: "Einspannen statt bohren",
     text: [
-      "Die Stange wird zwischen die Seitenwände der Fensterlaibung gespannt. Der Kasten hängt an zwei Haken davor, knapp über der Fensterbank.",
-      "Ob eine Laibung passt, hängt von Breite, Material und Zustand ab. Belastung, Wind und Wetter prüfen wir, bevor wir etwas verkaufen.",
+      "Eine Spannstange klemmt zwischen den Seiten der Fensterlaibung, zwei Halterungen tragen den Kasten.",
+      "Ob dein Fenster geeignet ist, hängt von Breite, Material und Zustand der Laibung ab.",
     ],
   },
 ];

@@ -198,6 +198,45 @@ export function soilBlock(w: number, d: number, r: number, h: number) {
   return g;
 }
 
+/**
+ * Breites, flaches Band (Halterung) entlang einer Mittellinie in der yz-Ebene.
+ * path: Punkte [z, y]; die Breite liegt entlang x, mittig um x = 0. Kanten leicht gerundet.
+ */
+export function strapGeometry(path: [number, number][], width: number, thickness: number) {
+  const n = path.length;
+  const outer: THREE.Vector2[] = [];
+  const inner: THREE.Vector2[] = [];
+  for (let i = 0; i < n; i++) {
+    const [z, y] = path[i];
+    const [zp, yp] = path[Math.max(0, i - 1)];
+    const [zn, yn] = path[Math.min(n - 1, i + 1)];
+    let tz = zn - zp;
+    let ty = yn - yp;
+    const l = Math.hypot(tz, ty) || 1;
+    tz /= l;
+    ty /= l;
+    const nz = -ty;
+    const ny = tz;
+    const h = thickness / 2;
+    // Formkoordinate x = -z, damit nach der Drehung um y wieder +z vorne ist
+    outer.push(new THREE.Vector2(-(z + nz * h), y + ny * h));
+    inner.push(new THREE.Vector2(-(z - nz * h), y - ny * h));
+  }
+  const shape = new THREE.Shape([...outer, ...inner.reverse()]);
+  const g = new THREE.ExtrudeGeometry(shape, {
+    depth: width,
+    bevelEnabled: true,
+    bevelThickness: 0.006,
+    bevelSize: 0.0035,
+    bevelSegments: 3,
+    curveSegments: 4,
+  });
+  g.rotateY(Math.PI / 2);
+  g.translate(-width / 2, 0, 0);
+  g.computeVertexNormals();
+  return g;
+}
+
 /** Herzförmiges Efeututen-Blatt, leicht entlang der Mittelrippe gefaltet. Spitze bei +y. */
 export function leafGeometry(size = 0.12) {
   const s = new THREE.Shape();

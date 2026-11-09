@@ -5,27 +5,42 @@ import { isPlausibleEmail, joinWaitlist, type WaitlistResult } from "@/lib/waitl
 
 type ErrorReason = Extract<WaitlistResult, { status: "error" }>["reason"] | "empty";
 
+const GENERIC = "Das hat leider nicht geklappt. Bitte versuche es noch einmal.";
+
 const MESSAGES: Record<ErrorReason, string> = {
   empty: "Bitte gib deine E-Mail-Adresse ein.",
-  invalid: "Das sieht nicht nach einer E-Mail-Adresse aus. Prüf bitte die Schreibweise.",
-  rate_limited: "Gerade kamen sehr viele Anfragen. Versuch es in ein paar Minuten noch einmal.",
-  unavailable: "Die Anmeldung ist gerade nicht erreichbar. Versuch es bitte später noch einmal.",
-  not_configured: "Die Warteliste öffnet in Kürze. Bis dahin können wir noch keine Adressen annehmen.",
-  network: "Keine Verbindung. Prüf deine Internetverbindung und versuch es erneut.",
+  invalid: "Das sieht nicht nach einer E-Mail-Adresse aus. Bitte prüf die Schreibweise.",
+  rate_limited: GENERIC,
+  unavailable: GENERIC,
+  network: GENERIC,
+  // Solange kein Wartelisten-Dienst angebunden ist, sagen wir das offen.
+  not_configured: "Die Warteliste öffnet in Kürze. Noch können wir keine Adressen annehmen.",
 };
 
 type State =
   | { kind: "idle" }
   | { kind: "submitting" }
-  | { kind: "pending"; email: string }
+  | { kind: "pending" }
+  | { kind: "already" }
   | { kind: "error"; reason: ErrorReason };
 
 export function WaitlistForm({
   tone = "light",
   note,
+  buttonLabel = "Auf die Warteliste",
+  label = "E-Mail-Adresse",
+  placeholder = "Deine E-Mail-Adresse",
+  size = "md",
+  inputId,
 }: {
   tone?: "light" | "dark";
   note?: React.ReactNode;
+  buttonLabel?: string;
+  label?: string;
+  placeholder?: string;
+  size?: "md" | "lg";
+  /** feste ID, damit CTA-Links das Feld gezielt fokussieren können */
+  inputId?: string;
 }) {
   const id = useId();
   const [state, setState] = useState<State>({ kind: "idle" });
@@ -39,7 +54,7 @@ export function WaitlistForm({
   }, []);
 
   useEffect(() => {
-    if (state.kind === "pending") doneRef.current?.focus();
+    if (state.kind === "pending" || state.kind === "already") doneRef.current?.focus();
     if (state.kind === "error" && (state.reason === "empty" || state.reason === "invalid")) inputRef.current?.focus();
   }, [state]);
 
@@ -52,39 +67,54 @@ export function WaitlistForm({
 
     const company = (new FormData(e.currentTarget).get("company") as string) || "";
     setState({ kind: "submitting" });
-    const result = await joinWaitlist({
-      email: value,
-      company,
-      elapsedMs: performance.now() - shownAt.current,
-    });
-    if (result.status === "pending") setState({ kind: "pending", email: value });
+    const result = await joinWaitlist({ email: value, company, elapsedMs: performance.now() - shownAt.current });
+    if (result.status === "pending") setState({ kind: "pending" });
+    else if (result.status === "already") setState({ kind: "already" });
     else setState({ kind: "error", reason: result.reason });
   }
 
+  // Bestätigungsmail wurde nachweislich verschickt (Antwort des Servers)
   if (state.kind === "pending") {
     return (
-      <div className={`wl wl--${tone} wl-done`} role="status" tabIndex={-1} ref={doneRef}>
-        <p className="wl-done__title">Fast geschafft.</p>
-        <p className="wl-done__text">
-          Wir haben dir eine E-Mail an <strong>{state.email}</strong> geschickt. Bestätige deine Adresse über den Link
-          darin, erst dann stehst du auf der Liste.
-        </p>
+      <div className={`wl wl--${tone} wl--${size} wl-done`} role="status" tabIndex={-1} ref={doneRef}>
+        <span className="wl-done__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M5 12.5l4.2 4.2L19 7" />
+          </svg>
+        </span>
+        <p className="wl-done__title">Fast geschafft!</p>
+        <p className="wl-done__text">Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir geschickt haben.</p>
+      </div>
+    );
+  }
+
+  if (state.kind === "already") {
+    return (
+      <div className={`wl wl--${tone} wl--${size} wl-done wl-done--info`} role="status" tabIndex={-1} ref={doneRef}>
+        <span className="wl-done__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 11v5.5M12 7.5v.01" />
+          </svg>
+        </span>
+        <p className="wl-done__title">Schon dabei</p>
+        <p className="wl-done__text">Diese E-Mail-Adresse ist bereits eingetragen oder wartet noch auf Bestätigung.</p>
       </div>
     );
   }
 
   const error = state.kind === "error" ? MESSAGES[state.reason] : null;
   const busy = state.kind === "submitting";
-  const fieldId = `${id}-email`;
-  const errorId = `${id}-error`;
-  const noteId = `${id}-note`;
+  const fieldId = inputId ?? `${id}-email`;
+  const errorId = `${fieldId}-error`;
+  const noteId = `${fieldId}-note`;
+  const fieldInvalid = state.kind === "error" && (state.reason === "empty" || state.reason === "invalid");
 
   return (
-    <form className={`wl wl--${tone}`} onSubmit={onSubmit} noValidate aria-busy={busy}>
+    <form className={`wl wl--${tone} wl--${size}`} onSubmit={onSubmit} noValidate aria-busy={busy}>
+      <label className="wl-label" htmlFor={fieldId}>
+        {label}
+      </label>
       <div className="wl-row">
-        <label className="sr-only" htmlFor={fieldId}>
-          E-Mail-Adresse
-        </label>
         <input
           ref={inputRef}
           id={fieldId}
@@ -95,23 +125,24 @@ export function WaitlistForm({
           autoComplete="email"
           autoCapitalize="none"
           spellCheck={false}
-          placeholder="deine@email.de"
+          placeholder={placeholder}
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
             if (state.kind === "error") setState({ kind: "idle" });
           }}
-          aria-invalid={state.kind === "error" && (state.reason === "empty" || state.reason === "invalid")}
+          aria-invalid={fieldInvalid}
           aria-describedby={[error ? errorId : null, note ? noteId : null].filter(Boolean).join(" ") || undefined}
           required
         />
         {/* Honeypot: für Menschen unsichtbar, Bots füllen es gerne aus */}
         <div className="wl-hp" aria-hidden="true">
-          <label htmlFor={`${id}-company`}>Firma</label>
-          <input id={`${id}-company`} name="company" type="text" tabIndex={-1} autoComplete="off" />
+          <label htmlFor={`${fieldId}-company`}>Firma</label>
+          <input id={`${fieldId}-company`} name="company" type="text" tabIndex={-1} autoComplete="off" />
         </div>
-        <button className="btn btn--primary wl-button" type="submit" disabled={busy}>
-          <span>{busy ? "Wird gesendet …" : "Auf die Warteliste"}</span>
+        <button className={`btn ${tone === "dark" ? "btn--lime" : "btn--forest"} wl-button`} type="submit" disabled={busy}>
+          <span className="btn__dot" aria-hidden="true" />
+          <span>{busy ? "Wird gesendet …" : buttonLabel}</span>
         </button>
       </div>
       <p id={errorId} className="wl-error" aria-live="polite">
