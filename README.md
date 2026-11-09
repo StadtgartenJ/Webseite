@@ -27,7 +27,7 @@ Die Reihenfolge folgt der Positionierung: Gefühl → Alltag → Funktion → Te
 | Hero | Foto (Goldene Stunde) | „Dein Fenster. Dein Garten.“ | Versprechen „Mehr Grün für dein Zuhause – auch ohne Balkon.“, Formular direkt im Hero, Hinweis „In Entwicklung.“ |
 | Reveal | Moos, Studiolicht | „Ein kleines Stück Natur. Mitten in der Stadt.“ | freigestelltes Produkt größer als der Text, zweite CTA |
 | Vorteile | Elfenbein | „Kleine Idee. Großer Unterschied.“ | drei asymmetrische Kompositionen: Fenster mit Pflanzen · Klemm-Detail · Schnittbild mit Sichtfenster-Ausschnitt und CTA |
-| Technik | Botanik-Hellgrün | „Schön durchdacht. Bis ins Innere.“ | Scroll-Film: die 3D-Bühne bleibt stehen, der Kasten öffnet sich beim Scrollen, Wasserweg, setzt sich wieder zusammen. Danach Tabs Produkt / Innenleben / Wasserweg / Montage zum Selbsterkunden |
+| Technik | Botanik-Hellgrün | „Schön durchdacht. Bis ins Innere.“ | Bildgeschichte in vier Stationen (Produkt · Innenleben · Wasserweg · Montage): auf dem Desktop eine stehende Bühne mit Überblendung, auf dem Handy Bild und Text je Station |
 | Alltag | Fassade vollflächig | „Die Stadt ist grau genug.“ | ruhige Textkarte über dem Foto |
 | Warteliste | Waldgrün | „Bald wächst hier etwas.“ | Formular, „Nur Updates zum Produkt. Jederzeit abmeldbar.“ |
 
@@ -40,7 +40,7 @@ Die Reihenfolge folgt der Positionierung: Gefühl → Alltag → Funktion → Te
 - **Farben:** Wald `#173F35`, Moos `#56663F`, Botanik `#C5DBAC` / hell `#E2EBD3`, Elfenbein `#F7F6EF`, Lime `#DCEB91` (Akzent und CTA auf Grün), Tinte `#202522`. Alle Tokens oben in `app/globals.css`.
 - **Schrift:** Bricolage Grotesque (Überschriften, optische Größe 56, normale Breite, Gewicht 560) und Figtree (Text, Fließtext ab 17 px). Beide selbst gehostet, SIL OFL. Überschriften brechen nach Sinnzeilen (`.l`-Spans mit `text-wrap: balance`).
 - **Formmotiv:** die Kapsel des Produkts. Pill-Buttons mit einem „Füllstand“-Punkt, der beim Hover steigt; Abschnitte mit kapselförmig gerundeten Kanten.
-- **Bewegung:** ein Auftritt beim Laden (Bild setzt sich, Zeilen steigen aus einer Maske), das schwebende Produkt im Reveal und der Scroll-Film im Technik-Abschnitt. Unter `prefers-reduced-motion` gibt es keinen Film und keine Kamerafahrt, nur die Tabs.
+- **Bewegung:** ein Auftritt beim Laden (Bild setzt sich, Zeilen steigen aus einer Maske), das schwebende Produkt im Reveal und die Überblendung der Technik-Bühne. Unter `prefers-reduced-motion` ist alles statisch.
 
 ## Code-Struktur
 
@@ -52,30 +52,32 @@ components/
   WaitlistLink.tsx       einheitlicher CTA „Auf die Warteliste“, fokussiert das nächste E-Mail-Feld
   ScrollFloat.tsx        schwebendes Produkt im Reveal (scrollgekoppelt)
   StickyCta.tsx          Handy-Leiste
+  TechStory.tsx          Technik-Abschnitt als Bildgeschichte
   Picture.tsx            AVIF/WebP mit Art-Direction (eigener Handy-Ausschnitt)
   explorer/              3D-Konzeptmodell (Szene, Geometrie, Texte, Fallbacks)
-    film.ts              Drehbuch des Scroll-Films: Schlüsselwerte für Bauteile, Kamera, Schnitt, Wasser, Beschriftungen
-    ProductExplorer.tsx  GSAP-Timeline + ScrollTrigger (pin, scrub), Kapiteltexte, Übergabe an die Tabs
-    PlanterScene.tsx     R3F-Szene; liest den Film-Zustand oder die Tabs, schreibt als Einzige die Transformationen
+                         (derzeit nicht eingebunden)
+blender/                 Mastermodell als Python-Skript (Cycles)
 lib/waitlist.ts          Client-Adapter zum Wartelisten-Endpunkt
 waitlist-worker/         serverseitiger Endpunkt (Cloudflare Worker)
 assets-src/v2/           Original-Bilder; npm run images erzeugt public/images/
 docs/bilder.md           Bildinventar, fehlende Motive, fertige Prompts
 ```
 
-## Scroll-Film (GSAP ScrollTrigger + React Three Fiber)
+## Technik-Abschnitt und 3D
 
-- **Ablauf (0–100 % des Scrollwegs):** Produkt, Kamera fährt näher → Klemmsystem und Pflanzeinsatz heben ab → Trennplatte, Kapillarelemente, Reservoir und Außenschale trennen sich, alle Teile beschriftet → Einsatz sitzt auf, Schnitt öffnet sich, Tropfen steigen in den Kapillarelementen → alles setzt sich zusammen → Kamera zurück in die Produktansicht, die Bühne gibt die Seite frei.
-- **Eine Quelle je Wert:** GSAP schreibt nur in ein Zustandsobjekt (`film.ts`), die Szene liest es und setzt als Einzige die Three.js-Transformationen. Alle Spuren sind `fromTo`-Ketten mit festen Start- und Endwerten, deshalb ist jede Scrollposition eindeutig – auch beim Zurückscrollen oder Springen.
-- **Bildaufbau:** In beschrifteten Phasen berechnet die Kamera Abstand und Bildausschnitt so, dass das Modell neben der Beschriftungsspalte und dem Kapiteltext Platz hat (Desktop, Tablet, Handy).
-- **Übergabe:** Am Ende steht die Kamera exakt in der Ansicht des Tabs „Produkt“; ab dort übernehmen die Tabs. Scrollt man zurück, übernimmt wieder der Film. „Überspringen“ springt ans Ende.
-- **Bildschirme:** eigener Scrollweg je Größe (`gsap.matchMedia`), auf dem Handy kompaktere Beschriftungen und Kapiteltext unter der Szene.
-- **Schonung:** schwächere Geräte rendern mit weniger Pixeln, kleineren Schatten und weniger Tropfen. Bei „Bewegung reduzieren“ kein Pin, keine Kamerafahrt.
-- **Anpassen:** Zeiten und Werte stehen in `components/explorer/film.ts` (Zeitachse 0–10).
+- Der Abschnitt nutzt vier Konzeptbilder (`components/TechStory.tsx`). Die Bühne bleibt per CSS `sticky` stehen; welche Station aktiv ist, erkennt ein IntersectionObserver. Kein WebGL, kein Scroll-Hijacking.
+- Der frühere 3D-Erkunder samt Scroll-Film liegt unbenutzt unter `components/explorer/`. Er hat das Qualitätsziel nicht erreicht.
+- Ein reproduzierbares Blender-Mastermodell liegt unter `blender/`. Qualitätstor, Ergebnis und nächste Schritte stehen in `docs/produktvisualisierung.md`.
+
+## Weitere Dokumente
+
+- `docs/deployment-diagnosis.md`: Ursache des 404 auf stadtgarden.de und die nötigen Einstellungen
+- `docs/conversion-audit.md`: Befunde, Maßnahmen, Hypothesen für A/B-Tests
+- `docs/bilder.md`: Bildinventar und Prompts
 
 ## Veröffentlichen (GitHub Pages)
 
-1. **Settings → Pages → Source:** „GitHub Actions“.
+1. **Settings → Pages → Source:** „GitHub Actions“ (nicht „Deploy from a branch“, sonst laufen zwei Deployments gegeneinander, siehe `docs/deployment-diagnosis.md`).
 2. **Custom domain** `stadtgarden.de`, DNS beim Anbieter setzen, „Enforce HTTPS“ aktivieren.
 3. **Settings → Secrets and variables → Actions → Variables:** `WAITLIST_ENDPOINT` mit der Worker-URL.
 4. Jeder Push auf `main` baut und veröffentlicht (`.github/workflows/deploy.yml`).

@@ -5,7 +5,7 @@ import { WaitlistForm } from "@/components/WaitlistForm";
 import { WaitlistLink } from "@/components/WaitlistLink";
 import { ScrollFloat } from "@/components/ScrollFloat";
 import { StickyCta } from "@/components/StickyCta";
-import { ProductExplorer } from "@/components/explorer/ProductExplorer";
+import { TechStory } from "@/components/TechStory";
 
 const PORTRAIT = { widths: [640, 900, 1122], width: 1122, height: 1402 };
 
@@ -26,7 +26,7 @@ export default function Home() {
               alt="Weißer Pflanzkasten mit Efeutute hängt an einer Spannstange vor einem Altbaufenster, warmes Abendlicht fällt auf die Fassade"
               className="hero__img"
               priority
-              art={{ name: "hero-mobile", widths: [600, 910], media: "(max-width: 639px)", sizes: "100vw", width: 910, height: 941 }}
+              art={{ name: "hero-phone", widths: [640, 960, 1260], media: "(max-width: 639px)", sizes: "100vw", width: 1260, height: 941 }}
             />
           </div>
           <div className="wrap hero__content">
@@ -173,7 +173,7 @@ export default function Home() {
                 Feuchtigkeit dorthin bringen, wo die Wurzeln sie brauchen.
               </p>
             </div>
-            <ProductExplorer />
+            <TechStory />
           </div>
         </section>
 

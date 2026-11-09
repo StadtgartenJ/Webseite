@@ -23,6 +23,10 @@ Alle Produktbilder sind **KI-generierte Konzeptvisualisierungen**, keine Fotos e
 | `cutaway.png` | 1122 × 1402 | Schnitt am Fenster mit Dochten | Vorteil „Weniger gießen. Mehr genießen.“ | Gut; als Konzept klar erkennbar. |
 | `exploded.png` | 1122 × 1402 | Explosionsansicht auf Salbeigrün | Ersatzbild, wenn der Browser kein 3D kann | Gut. J-Haken wie im Studiobild. |
 | `facade.png` | 1536 × 1024 | Pariser Fassade, Kasten am Fenster | „Die Stadt ist grau genug.“ (vollflächig) | Sehr stimmungsvoll; vollflächig auf großen Bildschirmen leicht weich. |
+| `produkt-gruen.png` | 1536 × 1024 | Kasten am Fenster, dunkelgrüne Fassade | Technik: Station „Produkt“ | Sehr gut, gleiche Halterung wie die übrigen Bilder. |
+| `explosion-gruen.png` (+ `-breit`) | 1199 × 1312 (1640 × 1312) | Explosionsansicht auf Dunkelgrün, breite Halterungen | Technik: Station „Innenleben“; die Breitfassung ist seitlich um Hintergrund ergänzt | Sehr gut; ersetzt `exploded.png` mit J-Haken. |
+| `schnitt-breit.png` | 1672 × 941 | Konzeptschnitt am Fenster, Querformat | Technik: Station „Wasserweg“ | Sehr gut. |
+| `montage-nah.png` | 1672 × 941 | Nahaufnahme am Fenster mit Stange und Halterungen | Technik: Station „Montage“; Ausschnitt `hero-phone` für den Handy-Hero | Sehr gut. |
 
 Nicht mehr verwendet und löschbar: `assets-src/hero-window.png`, `assets-src/concept-sheet.png` sowie in `public/images/` alle Dateien, die mit `hero-window-`, `daylight-`, `detail-`, `window-light-` oder `trailing-` beginnen. Ebenso `app/fonts/FamiljenGrotesk-Variable.woff2`, `app/fonts/InstrumentSans-Variable.woff2` und ihre Lizenzdateien sowie `components/Chapters.tsx` (seit Version 3 ungenutzt).
 
