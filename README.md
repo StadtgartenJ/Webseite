@@ -51,8 +51,9 @@ components/
   Picture.tsx            AVIF/WebP mit Art-Direction (eigener Handy-Ausschnitt)
   explorer/ProductViewer.tsx  3D-Viewer: Lazy Loading, Standbild, Fallbacks, Bedienung
   explorer/PlanterScene.tsx   Szene (React Three Fiber), lädt public/models/stadtgarden.glb
+  explorer/TeardownFilm.tsx     Scroll-Film aus der Blender-Bildsequenz (v6)
   explorer/ProductExplorer.tsx  v4-Scroll-Film (nicht eingebunden)
-blender/                 Mastermodell (stadtgarden_v5.py) und prozedurale Texturen
+blender/v6/              Mastermodell v6 (Skripte, .blend, Renderings); blender/stadtgarden_v5.py = Vorgänger
 scripts/build-model.sh   Blender → GLB → gltf-transform (Meshopt, WebP)
 lib/waitlist.ts          Client-Adapter zum Wartelisten-Endpunkt
 waitlist-worker/         serverseitiger Endpunkt (Cloudflare Worker)
@@ -60,11 +61,12 @@ assets-src/v2/           Original-Bilder; npm run images erzeugt public/images/
 docs/bilder.md           Bildinventar, fehlende Motive, fertige Prompts
 ```
 
-## Technik-Abschnitt und 3D
+## Technik-Abschnitt und 3D (v6)
 
-- Ein Blender-Mastermodell liefert Cycles-Standbilder und das GLB für den Browser. Pipeline, Qualitätstor und Grenzen: `docs/3d-rendering-report.md`.
-- Der Viewer lädt three.js und das Modell erst in der Nähe des Abschnitts. Davor steht ein Standbild aus dem Viewer an derselben Stelle. Ohne WebGL oder wenn das Modell nicht lädt, erscheint ein Konzeptbild mit Hinweis.
-- Modell neu bauen: `bash scripts/build-model.sh` (braucht `pip install bpy`).
+- **Blender-Mastermodell** in `blender/v6/` (Skripte) → `blender/v6/stadtgarden_v6.blend`. Alle Bauteile als eigene Objekte, Teardown-Animation, Studio, Kameras. Pflanzen aus CC0-Scans von Poly Haven (`blender/assets/`, nicht im Repo).
+- **Scroll-Film**: vorgerenderte Cycles-Bildsequenz (`public/film/`), per GSAP ScrollTrigger Bild für Bild gezeichnet (`components/explorer/TeardownFilm.tsx`).
+- **Interaktiver Viewer**: dasselbe Modell als optimiertes GLB (`public/models/stadtgarden-v6.glb`), drehen, zoomen, vier Ansichten (`PlanterScene.tsx`, `ProductViewer.tsx`). Lädt erst in der Nähe des Abschnitts; Standbild davor, Rendering ohne WebGL.
+- Neu bauen: `bash scripts/build-model-v6.sh` (GLB) und `python3 scripts/build-film.py <PNG-Ordner>` (Film). Details, Zeiten und Lizenzen: `docs/3d-rendering-report.md`.
 
 ## Weitere Dokumente
 
@@ -72,7 +74,7 @@ docs/bilder.md           Bildinventar, fehlende Motive, fertige Prompts
 - `docs/conversion-audit.md`: Befunde, Maßnahmen, Messwerte, Hypothesen für A/B-Tests
 - `docs/release-checklist.md`: alles, was vor dem Start erledigt sein muss
 - `docs/product-design-system.md`: Farben, Schrift, Formen, Bewegung, CTA
-- `docs/3d-rendering-report.md`: 3D-Pipeline, Qualitätstor, Fallbacks
+- `docs/3d-rendering-report.md`: Blender-Master, Teardown, GLB, Scroll-Film, Lizenzen
 - `docs/bilder.md`: Bildinventar und Prompts
 
 ## Veröffentlichen (GitHub Pages)

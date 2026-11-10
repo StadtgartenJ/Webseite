@@ -9,7 +9,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Picture } from "../Picture";
 import { MODES, PARTS, type Mode, type PartId } from "./parts";
 import { createFilmState } from "./film";
 import type { Quality, SceneBridge } from "./PlanterScene";
@@ -175,14 +174,19 @@ export function ProductViewer() {
         >
           {load === "nowebgl" || load === "failed" ? (
             <div className="explorer__fallback-photo">
-              <Picture
-                name="explosion-gruen"
-                widths={[800, 1200, 1640]}
-                width={1640}
-                height={1312}
-                sizes="(min-width: 1024px) 80vw, 100vw"
-                alt="Konzept-Explosionsansicht: Spannstange mit zwei Halterungen, Pflanzeinsatz mit Erde, gelochte Trennplatte, zwei Kapillarelemente, Wasserreservoir und Außenschale mit Sichtfenster"
-              />
+              {/* Cycles-Rendering des Blender-Mastermodells v6 */}
+              <picture>
+                <source type="image/webp" srcSet="/images/v6-explosion-900.webp 900w, /images/v6-explosion-1600.webp 1600w" sizes="(min-width: 1024px) 80vw, 100vw" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/v6-explosion-1600.webp"
+                  width={1600}
+                  height={1000}
+                  alt="Explosionsansicht des Pflanzkastens: oben Spannstange mit zwei Bügeln, darunter Pflanzeinsatz mit Pflanzen, gelochte Trennplatte mit zwei Dochten, Wasserreservoir und Außenschale mit Sichtfenster"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </picture>
             </div>
           ) : (
             // Standbild aus demselben Blender-Modell, gleiche Kamera wie der Viewer

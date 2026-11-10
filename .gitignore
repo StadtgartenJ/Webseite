@@ -24,5 +24,16 @@ shots/
 
 # 3D: erzeugte Texturen und Zwischenstände (scripts/build-model.sh baut sie neu)
 blender/tex/
-renders/
+/renders/
 public/models/*-raw.glb
+
+# Blender v6: Zwischenstände und erzeugte Dateien
+__pycache__/
+*.blend1
+blender/v6/web_tex/
+blender/v6/renders/*
+!blender/v6/renders/stadtgarden_v6_produkt_4k.png
+!blender/v6/renders/stadtgarden_v6_explosion_4k.png
+
+# Scan-Assets (Poly Haven, CC0) – groß, lokal halten
+blender/assets/

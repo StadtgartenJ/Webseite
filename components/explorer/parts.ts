@@ -9,7 +9,7 @@ export type PartInfo = {
   letter: string;
   name: string;
   text: string;
-  /** Versatz in der Explosionsansicht (Modelleinheiten) – gleiche Werte wie EXPLODED im Scroll-Film */
+  /** Versatz in der Explosionsansicht (Modelleinheiten) – wie EXPLODE in blender/v6/sg_model.py (× 3) */
   explode: [number, number, number];
   /** Richtung, in die das Teil beim Herausziehen wandert */
   pull: [number, number, number];
@@ -25,7 +25,7 @@ export const PARTS: PartInfo[] = [
     letter: "A",
     name: "Außenschale",
     text: "Eine klare, weich gerundete Form, die sich harmonisch in moderne Architektur einfügen soll.",
-    explode: [0, -1.05, 0],
+    explode: [0, -0.9, 0],
     pull: [0, -0.5, 0.35],
     draggable: true,
     listed: true,
@@ -35,7 +35,7 @@ export const PARTS: PartInfo[] = [
     letter: "B",
     name: "Pflanzeinsatz",
     text: "Ein herausnehmbarer Einsatz mit Platz für Substrat und Wurzeln.",
-    explode: [0, 0.8, 0],
+    explode: [0, 0.81, 0],
     pull: [0, 0.6, 0.2],
     draggable: true,
     listed: true,
@@ -45,7 +45,7 @@ export const PARTS: PartInfo[] = [
     letter: "C",
     name: "Wasserreservoir",
     text: "Ein integrierter Speicher für die geplante passive Wasserversorgung.",
-    explode: [0, -0.14, 0],
+    explode: [0, -0.15, 0],
     pull: [0, 0, 0.8],
     draggable: true,
     listed: true,
@@ -55,7 +55,7 @@ export const PARTS: PartInfo[] = [
     letter: "D",
     name: "Kapillarelemente",
     text: "Sie sollen Feuchtigkeit aus dem Reservoir in Richtung Pflanzsubstrat transportieren.",
-    explode: [0, 0.08, 0],
+    explode: [0, 0.15, 0],
     pull: [0, 0.15, 0.75],
     draggable: true,
     listed: true,
@@ -65,7 +65,7 @@ export const PARTS: PartInfo[] = [
     letter: "E",
     name: "Füllstandsanzeige",
     text: "Ein dezentes Sichtfenster zeigt den Wasserstand im Reservoir.",
-    explode: [0, -1.05, 0],
+    explode: [0, -0.9, 0],
     pull: [0, -0.5, 0.35],
     draggable: false,
     listed: true,
@@ -75,7 +75,7 @@ export const PARTS: PartInfo[] = [
     letter: "F",
     name: "Klemmsystem",
     text: "Eine horizontale Spannstange und zwei Halterungen bilden das geplante Befestigungssystem.",
-    explode: [0, 1.35, 0],
+    explode: [0, 1.56, 0],
     pull: [0, 0.45, -0.3],
     draggable: true,
     listed: true,
@@ -85,7 +85,7 @@ export const PARTS: PartInfo[] = [
     letter: "",
     name: "Trennplatte",
     text: "",
-    explode: [0, 0.26, 0],
+    explode: [0, 0.36, 0],
     pull: [0, 0.1, 0.75],
     draggable: false,
     listed: false,
@@ -95,7 +95,7 @@ export const PARTS: PartInfo[] = [
     letter: "",
     name: "Einfüllschacht",
     text: "",
-    explode: [0, -0.14, 0],
+    explode: [0, -0.15, 0],
     pull: [0.6, 0.1, 0],
     draggable: false,
     listed: false,

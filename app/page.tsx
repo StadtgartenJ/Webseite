@@ -6,6 +6,7 @@ import { WaitlistLink } from "@/components/WaitlistLink";
 import { ScrollFloat } from "@/components/ScrollFloat";
 import { StickyCta } from "@/components/StickyCta";
 import { ProductViewer } from "@/components/explorer/ProductViewer";
+import { TeardownFilm } from "@/components/explorer/TeardownFilm";
 
 const PORTRAIT = { widths: [640, 900, 1122], width: 1122, height: 1402 };
 
@@ -175,6 +176,8 @@ export default function Home() {
                 leiten. Entdecke, wie unser Konzept aufgebaut ist.
               </p>
             </div>
+            <TeardownFilm />
+            <p className="inside__explore">Jetzt selbst erkunden: drehen, zoomen, auseinanderziehen.</p>
             <ProductViewer />
           </div>
         </section>

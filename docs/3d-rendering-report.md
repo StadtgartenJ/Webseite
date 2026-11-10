@@ -1,79 +1,104 @@
-# 3D-Bericht v5: Mastermodell, Pipeline, Qualitätstor
+# 3D-Bericht v6: Premium-Teardown
 
-Stand: 9. 11. 2026 · Viewer im Abschnitt „Schön von außen. Durchdacht von innen.“
+Stand: 10. 11. 2026 · Branch `v6-teardown` · betrifft nur den Abschnitt „Schön von außen. Durchdacht von innen.“
 
-## Kurzfassung
+## Ergebnis in Kürze
 
-- **Ein Modell für alles:** `blender/stadtgarden_v5.py` baut das Konzeptmodell in Blender (bpy 5.2.3). Daraus entstehen die Cycles-Standbilder und das GLB für den Browser.
-- **Geometrie wie festgelegt:** eine Spannstange, zwei runde Endkappen, zwei breite Halterungen (Bänder über der Stange), keine J-Haken. Außenschale, Reservoir, gelochte Trennplatte, zwei Kapillarelemente, Pflanzeinsatz mit Erde, Sichtfenster.
-- **Browser:** `public/models/stadtgarden.glb`, 521 KB (Meshopt-Geometrie, WebP-Texturen). Geladen erst, wenn der Abschnitt näher als 60 % einer Bildschirmhöhe ist.
-- **Ehrliches Ergebnis:** Das Modell ist klar dasselbe Produkt wie auf den Fotos. Es ist **nicht fotorealistisch**. Die Pflanzen sind prozedural (keine lizenzierten Scans erreichbar) und wirken aus der Nähe wie gute Spielgrafik, nicht wie Fotografie. Das Foto-Ziel („perfektes Produktfoto“) erfüllen weiterhin die Fotos im Hero, Reveal und Abschluss.
+| Lieferung | Datei | Stand |
+| --- | --- | --- |
+| Bearbeitbare Blender-Masterdatei | `blender/v6/stadtgarden_v6.blend` (gebaut von `blender/v6/sg_run.py`) | fertig |
+| Rendering montiert, 4K | `blender/v6/renders/stadtgarden_v6_produkt_4k.png` (3840 × 2160, Cycles, 200 Samples) | fertig, geprüft |
+| Explosionsansicht, 4K | `blender/v6/renders/stadtgarden_v6_explosion_4k.png` | fertig, geprüft |
+| Teardown-Animation | in der Masterdatei (240 Bilder, 24 fps, Kamera `Kamera_Film`) | fertig |
+| Vorgerenderte Bildsequenz | `public/film/teardown-1080/` und `teardown-720/` (94 Bilder, WebP) | siehe Abschnitt Scroll-Film |
+| Interaktives GLB | `public/models/stadtgarden-v6.glb` (1,5 MB, ca. 188 000 Dreiecke, Meshopt + WebP) | fertig |
+| Website | Scroll-Film + interaktiver Viewer im Technik-Abschnitt | fertig, lokal geprüft |
+
+Ehrlich: Die Cycles-Bilder wirken wie ein hochwertiges Produktfoto aus dem Studio, aus der Nähe erkennt man bei den Hängepflanzen aber, dass es gerenderte Blattflächen sind. Die Echtzeit-Version im Browser ist einfacher (kein Pfadverfolgungs-Licht, keine Transluzenz der Blätter) und zeigt erkennbar dasselbe Produkt.
 
 ## Pipeline
 
 ```
-blender/textures.py        → blender/tex/*.png   (prozedurale Texturen, frei verwendbar)
-blender/stadtgarden_v5.py  → Szene, PBR-Materialien, Pflanzen
-   --glb  public/models/stadtgarden-raw.glb       (glTF, Y oben)
-   --render renders/…png --state assembled|exploded   (Cycles, Kamera = Viewer)
-gltf-transform optimize --compress meshopt --texture-compress webp
-   → public/models/stadtgarden.glb
+blender/v6/sg_model.py    Produkt: alle Bauteile als eigene, benannte Objekte, echte Maße in Metern, PBR-Materialien
+blender/v6/sg_plants.py   Bepflanzung aus Scan-Assets (Poly Haven, CC0)
+blender/v6/sg_studio.py   Hohlkehle, Softboxen, HDRI, Kameras, Cycles-Einstellungen
+blender/v6/sg_anim.py     Teardown-Animation (Keyframes an den Gruppen-Empties, Kamera-Rig)
+blender/v6/sg_run.py      Einstieg: build_master(), render(), render_sequence()
+blender/v6/sg_export.py   Web-GLB (vereinfacht), danach scripts/build-model-v6.sh
+scripts/build-film.py     PNG-Sequenz → WebP für den Scroll-Film
 ```
 
-Ein Befehl für alles: `scripts/build-model.sh` (benötigt `pip install bpy` und `npx @gltf-transform/cli`).
+In Blender (Skript-Editor):
 
-Der Viewer (`components/explorer/PlanterScene.tsx`) übernimmt Geometrie und Materialien aus dem GLB und ergänzt nur, was zur Interaktion gehört: Schnittebene, Wasserpartikel, Pfeile, Fensterlaibung in der Montage-Ansicht, Beschriftungen.
+```python
+import sys; sys.path.insert(0, r"C:\Users\Jay\Documents\GitHub\Webseite\blender\v6")
+import sg_run
+sg_run.build_master()                                    # baut und speichert stadtgarden_v6.blend
+sg_run.render("produkt", r"…\produkt.png", (3840, 2160), 200)
+sg_run.render_sequence(r"…\teardown_1080", (1080, 1080), 96, 0, 186, 2)
+```
 
-Drei Korrekturen beim Laden, weil der glTF-Export sie nicht so liefert wie gebraucht:
+Grafikkarte: GTX 1080 mit **CUDA** (OptiX meldet bei dieser Karte einen Kernel-Fehler). Zeiten: 4K-Standbild ca. 5 min, Sequenzbild 1080² ca. 25–60 s.
 
-| Problem | Ursache | Lösung im Viewer |
+## Bauteile (getrennte Objekte, Gruppen für die Animation)
+
+| Gruppe (Empty) | Objekte |
+| --- | --- |
+| `GRP_Schale` | `SG_Schale` (Wand 5 mm, gerollter Rand, Langloch), `SG_Anzeige_Fenster`, `SG_Anzeige_Wasser`, `SG_Anzeige_Rueckwand`, `SG_Halterung_L/R_Aufnahme` |
+| `GRP_Reservoir` | `SG_Reservoir` (klar, 2,5 mm), `SG_Wasser` |
+| `GRP_Dochte` | `SG_Docht_L`, `SG_Docht_R` (Vlies, unten nass) |
+| `GRP_Trennplatte` | `SG_Trennplatte` (echtes Lochraster, Schlitze für die Dochte) |
+| `GRP_Pflanzeinsatz` | `SG_Pflanzeinsatz` (schwarz, Lüftungsschlitze, Dochtdurchlass), `SG_Erde` (Relief, Perlit, Rinde), Pflanzen |
+| `GRP_Halterungssystem` | `SG_Stange_Aussen`, `SG_Stange_Innen` (teleskopierbar), `SG_Stange_Klemmring`, `SG_Endkappe_L/R` + Gummi, `SG_Halterung_L/R` (breite Bänder über der Stange) |
+
+Maße (Annahmen aus den Konzeptbildern, keine Konstruktion): Schale 80 × 24 × 27 cm, Stange 1,0 m mit Endkappen, Bänder 6 cm breit. Keine J-Haken, kein Einfüllschacht, keine weiteren Funktionen.
+
+## Teardown-Animation (240 Bilder, 24 fps)
+
+| Bilder | Phase |
+| --- | --- |
+| 0–24 | montiertes Produkt, Kamera fährt langsam an |
+| 24–66 | Pflanzeinsatz hebt sich |
+| 54–90 | Trennplatte wird sichtbar |
+| 80–108 | Kapillardochte werden freigelegt |
+| 96–136 | Reservoir und Schale fahren auseinander |
+| 120–150 | Halterungssystem hebt ab, Aufbau komplett sichtbar |
+| 150–186 | Halten, Kamera kreist weiter |
+| 186–240 | alles setzt sich in umgekehrter Reihenfolge zusammen |
+
+Alle Bewegungen sind reine Verschiebungen entlang der Montageachse mit weichem Ein- und Auslauf (Bezier, Auto-Clamped), ohne Überschwingen.
+
+## Qualitätsprüfung (an den echten Renderings)
+
+| Kriterium | Befund |
+| --- | --- |
+| Geometrie | Rundungen sauber, Rand gerollt, Wandstärken sichtbar, Langloch mit Fenster und Flüssigkeit. Geprüft in Nahaufnahmen von vorne und hinten. |
+| Materialien | Schale seidenmatt mit leichter Mikrostruktur, Bügel pulverbeschichtet (Orangenhaut), Einsatz schwarz genarbt, Reservoir klar mit Wasser (Absorption), Dochte als Vlies. |
+| Pflanzen | Krone aus eingescannten Anthurium-Pflanzen; Ranken mit eingescannten Blättern und Stängeln. Wirkt aus Produktfoto-Abstand natürlich; aus der Nähe sind die Ranken als Blattflächen erkennbar. Echte Efeutute/Pfennigkraut gibt es frei lizenziert nicht in vergleichbarer Qualität. |
+| Befestigung | Bänder kommen von der Rückwand, laufen über die Stange und sind unten in Aufnahmen eingehängt. Plausibel als Konzept, **nicht** statisch geprüft. |
+| Technische Plausibilität | Wasser unten, Dochte durch die Platte bis ins Substrat, Wasserstand im Fenster sichtbar. Ob das im Alltag genügt, ist ungetestet. |
+| Browser | gleiche Teile und Proportionen; Blätter ohne Transluzenz, Glas als einfache Transparenz. |
+
+## Website
+
+- **Scroll-Film** (`components/explorer/TeardownFilm.tsx`): Abschnitt wird angeheftet, ScrollTrigger (scrub) zeichnet die Blender-Bilder auf ein Canvas, fünf kurze Texte zu den Phasen. Bilder laden erst in der Nähe des Abschnitts. „Bewegung reduzieren“: kein Anheften, Endbild der Explosion und alle Texte untereinander.
+- **Interaktiver Viewer** (`PlanterScene.tsx`, unverändert bedienbar): lädt jetzt `stadtgarden-v6.glb`. Drehen, Zoomen, Produkt / Innenleben / Wasserweg / Montage, einzelne Teile herausziehen.
+- Standbild vor dem Laden: Aufnahme aus dem Viewer selbst. Ohne WebGL: 4K-Explosionsrendering aus Blender.
+
+## Lizenzen
+
+| Asset | Quelle | Lizenz |
 | --- | --- | --- |
-| Lochraster und Erde wiederholten sich nicht | Export setzt Texturen auf „clamp“ | alle Texturen auf `RepeatWrapping` |
-| Löcher der Trennplatte verschwinden aus der Entfernung | Mipmaps mitteln Loch und Platte | Plattentextur ohne Mipmaps, größere Löcher |
-| Blätter mit Sortierfehlern | Export als `BLEND` | `alphaTest 0.5`, auf starken Geräten zusätzlich `alphaToCoverage` |
+| Anthurium Botany 01 (Modell, Texturen 4K) | polyhaven.com/a/anthurium_botany_01 – Rob Tuytel, Rico Cilliers | CC0 1.0 |
+| Periwinkle Plant (Texturatlas 4K) | polyhaven.com/a/periwinkle_plant – Amal Kumar | CC0 1.0 |
+| Studio Small 09 (HDRI) | polyhaven.com/a/studio_small_09 | CC0 1.0 |
+| Produkt, Erde, Materialien | eigene Geometrie und Prozedur-Materialien (Skripte im Repo) | eigen |
+| Werkzeuge | Blender 5.2 (GPL), glTF-Transform (MIT), three.js / React Three Fiber (MIT), GSAP (frei, Standardlizenz) | kostenlos |
 
-## Vier Ansichten
+Die Assets liegen lokal in `blender/assets/` und sind über `.gitignore` vom Repository ausgeschlossen (über 100 MB).
 
-| Ansicht | Was passiert | Geprüft |
-| --- | --- | --- |
-| Produkt | zusammengebaut, Stange mit Halterungen, frei drehbar | 1440 und 390 px |
-| Innenleben | Explosionsansicht, Schieberegler, Teileliste A–F, Teile einzeln herausziehbar | 1440 und 390 px |
-| Wasserweg | Schnitt durch Schale und Reservoir, Tropfen steigen in den Kapillarelementen, drei nummerierte Schritte | 1440 und 390 px; ohne Schleife bei „Bewegung reduzieren“ |
-| Montage | Fensterlaibung blendet ein, Stange teleskopiert bis zur Laibung, Pflanzen treten zurück | 1440 und 390 px |
+## Grenzen
 
-Beschriftungen bleiben auf schmalen Bildschirmen ganz im Bild (seit dieser Runde begrenzt).
-
-## Qualitätstor: Cycles gegen Browser
-
-![Vergleich](img/3d-quality-gate.jpg)
-
-Links Blender Cycles (128 Samples, Denoiser, AgX), rechts dasselbe Modell im Browser (WebGL, Software-Rendering im Test). Kamera identisch (vertikaler Bildwinkel 30°).
-
-| Kriterium | Cycles | Browser | Urteil |
-| --- | --- | --- | --- |
-| Form der Schale, Proportionen | ✔ | ✔ | gleich |
-| Spannstange, Endkappen, breite Halterungen | ✔ | ✔ | gleich, keine Haken |
-| Sichtfenster mit Wasserstand | ✔ | ✔ | gleich |
-| Lochraster der Trennplatte | gut sichtbar | in der Explosion aus der Entfernung kaum sichtbar | Schwäche im Browser |
-| Pflanzen | weich, aber blass (Studiolicht zu hell) | sattere Farben, schärfere Kanten, sichtbare Kartengeometrie aus der Nähe | beide **nicht fotoreal** |
-| Licht, Schatten | weiche Flächenlichter, echter Schattenwurf | Umgebungslicht + eine Schattenkarte, Kontaktschatten | Browser härter, aber stimmig |
-| Material der Schale | satiniert, etwas grau | warmes Weiß mit leichtem Glanz | Browser näher an den Fotos |
-
-**Entscheidung:** Das Standbild, das vor dem Laden des 3D-Modells an derselben Stelle steht (`public/images/viewer-preview-*.webp`), ist jetzt eine Aufnahme aus dem Browser-Viewer selbst und nicht mehr das Cycles-Bild. Grund: Der Wechsel vom blassen Cycles-Bild zum satteren 3D-Modell war deutlich sichtbar. Jetzt deckt sich das Standbild pixelgenau mit dem ersten 3D-Bild (geprüft bei 1440 und 390 px).
-
-## Fallbacks und Robustheit
-
-| Fall | Verhalten | Geprüft |
-| --- | --- | --- |
-| vor dem Laden | Standbild aus dem Viewer, gleiche Kamera | ja |
-| kein WebGL | Konzept-Explosionsbild, Hinweis „Dein Browser zeigt kein 3D …“, nur „Produkt“ wählbar | ja (Chromium ohne WebGL) |
-| GLB lädt nicht (Netz, Datei fehlt) | **vorher stürzte die ganze Seite ab** („Application error“); jetzt fängt eine Fehlergrenze das ab und zeigt das Bild mit Hinweis | ja (Anfrage blockiert) |
-| schwaches Gerät (≤ 4 Kerne, ≤ 4 GB, Datensparmodus) | weniger Pixel, keine Schattenkarte, weniger Tropfen | Logik geprüft, nicht auf echtem Gerät |
-| „Bewegung reduzieren“ | keine Kamerafahrten, Wasserweg ohne Schleife, kein Abspielknopf | ja |
-
-## Grenzen und nächste Schritte
-
-1. **Fotorealistische Pflanzen** brauchen gescannte oder professionell modellierte Assets (z. B. lizenzierte Efeutute und Pfennigkraut). Poly Haven war aus der Arbeitsumgebung gesperrt, bei Khronos gibt es keine passende Pflanze. Mit solchen Assets bleibt die Pipeline gleich; nur die Pflanzenfunktion im Blender-Skript wird ersetzt.
-2. **Lochraster in der Explosion:** echte Löcher in der Geometrie statt Textur (mehr Dreiecke, aber aus jeder Entfernung sichtbar).
-3. **Test auf echter Hardware:** alle Browser-Aufnahmen entstanden mit Software-Rendering (SwiftShader). Auf echten GPUs sind Kanten glatter und Übergänge schneller; Bildrate, Akku und Wärme auf echten Handys sind **ungeprüft**.
-4. **Cycles-Licht:** Studiolicht und Belichtung so anpassen, dass die Standbilder für Presse oder Social Media nicht blass wirken.
+1. Echte Efeutute und Pfennigkraut wie auf den Konzeptfotos: nur mit kostenpflichtigen oder selbst gescannten Pflanzen.
+2. Echtzeit-Version: Leistung auf echten Handys ungeprüft (getestet nur mit Software-Rendering).
+3. Der Scroll-Film wiegt ca. 4–8 MB (je nach Bildschirm, nur bei Bedarf geladen).

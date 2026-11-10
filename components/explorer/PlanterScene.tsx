@@ -68,19 +68,20 @@ export type SceneProps = {
 // ── Abgeleitete Maße ──────────────────────────────────────────────────────
 const { A, B, H, Rx, Rz, rc, t } = DIM;
 const GAP = 0.012;
-const INSERT = { x0: -(A - t - GAP), x1: 0.88, bottom: 0.34, top: 0.8, halfD: B - t - 0.03 };
+// Maße aus dem Blender-Mastermodell v6 (blender/v6/sg_model.py, Meter × 3 = Viewer-Einheiten)
+const INSERT = { x0: -1.15, x1: 1.15, bottom: 0.339, top: 0.801, halfD: 0.33 };
 const INSERT_W = INSERT.x1 - INSERT.x0;
 const INSERT_CX = (INSERT.x0 + INSERT.x1) / 2;
-const SOIL_TOP = 0.76;
-const PLATE_Y = 0.31;
-const RES_TOP = 0.285;
-const WATER_TOP = 0.2;
-const WICK_X = 0.62;
-const WICK = { w: 0.15, bottom: 0.045, top: 0.5, z: -0.03, th: 0.012 };
+const SOIL_TOP = 0.747;
+const PLATE_Y = 0.297;
+const RES_TOP = 0.279;
+const WATER_TOP = 0.198;
+const WICK_X = 0.615;
+const WICK = { w: 0.15, bottom: 0.036, top: 0.45, z: 0, th: 0.009 };
 const SHAFT = { x: 1.02, z: -0.04, r: 0.045, bottom: 0.14, top: 0.83 };
-const ROD = { y: H + 0.08, z: -B, r: 0.032 };
+const ROD = { y: 0.984, z: -0.41, r: 0.0375 };
 const HOOK_X = 0.78;
-const STRAP = { w: 0.18, th: 0.016 };
+const STRAP = { w: 0.18, th: 0.012 };
 const WALL_INNER = 1.67;
 
 const PRESETS: Record<Mode, { pos: [number, number, number]; target: [number, number, number] }> = {
@@ -125,8 +126,8 @@ function useDamped(target: number, lambda: number, reduced: boolean) {
   return v;
 }
 
-// ── Modell (GLB aus blender/stadtgarden_v5.py) und Materialien ────────────
-export const MODEL_URL = "/models/stadtgarden.glb";
+// ── Modell (GLB aus blender/v6/sg_export.py) und Materialien ──────────────
+export const MODEL_URL = "/models/stadtgarden-v6.glb";
 
 type Asset = {
   nodes: Record<string, THREE.Object3D>;
@@ -141,55 +142,49 @@ const useAsset = () => useContext(AssetCtx)!;
  */
 function buildMaterials(src: Record<string, THREE.Material>, clip: THREE.Plane, quality: Quality) {
   const clipping = [clip];
-  const pick = <T extends THREE.Material>(name: string) => (src[name] as T).clone() as T;
-  const std = (name: string, extra: Partial<THREE.MeshPhysicalMaterial> = {}) => {
-    const m = pick<THREE.MeshPhysicalMaterial>(name);
-    Object.assign(m, { side: THREE.DoubleSide, clippingPlanes: clipping }, extra);
+  type Extra = Omit<Partial<THREE.MeshPhysicalMaterial>, "color" | "emissive"> & { color?: string; emissive?: string };
+  const std = (name: string, extra: Extra = {}) => {
+    const base = src[name] as THREE.MeshPhysicalMaterial | undefined;
+    const m = base ? (base.clone() as THREE.MeshPhysicalMaterial) : new THREE.MeshPhysicalMaterial();
+    // Glas/Wasser im Echtzeitbild als einfache Transparenz (Transmission wäre auf Handys zu teuer)
+    m.transmission = 0;
+    const { color, emissive, ...rest } = extra;
+    Object.assign(m, { side: THREE.DoubleSide, clippingPlanes: clipping }, rest);
+    if (color) m.color = new THREE.Color(color);
+    if (emissive) m.emissive = new THREE.Color(emissive);
     m.needsUpdate = true;
     return m;
   };
-  const leafy = (name: string) =>
-    std(name, { transparent: false, alphaTest: 0.5, depthWrite: true, alphaToCoverage: quality === "high" } as Partial<THREE.MeshPhysicalMaterial>);
-  // Kacheltexturen (Lochraster, Erde, Gewebe) wiederholen sich – im GLB steht teils „clamp“
-  for (const m of Object.values(src) as THREE.MeshStandardMaterial[]) {
-    for (const t of [m.map, m.normalMap]) {
-      if (t && (t.wrapS !== THREE.RepeatWrapping || t.wrapT !== THREE.RepeatWrapping)) {
-        t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        t.needsUpdate = true;
-      }
-    }
-  }
-  const shell = std("Satin", { envMapIntensity: 1.0, color: new THREE.Color("#f9f7f2") });
-  // Lochplatte: ohne Mipmaps, sonst „verschwimmen“ die Löcher aus der Entfernung zu einer geschlossenen Fläche
-  const plateMap = (src["Trennplatte"] as THREE.MeshStandardMaterial).map;
-  if (plateMap) {
-    plateMap.generateMipmaps = false;
-    plateMap.minFilter = THREE.LinearFilter;
-    plateMap.anisotropy = 4;
-    plateMap.needsUpdate = true;
-  }
-  // Blattunterseiten etwas heller: diffuses Licht scheint durch dünne Blätter
-  for (const k of ["Efeutute", "Pfennigkraut"]) (src[k] as THREE.MeshStandardMaterial).envMapIntensity = 1.2;
-  const gaugeWater = std("Sichtfenster-Wasser", { emissive: new THREE.Color("#1f6688"), emissiveIntensity: 0.12 });
+  const leafy = (name: string, lift: number) => {
+    const m = std(name, { transparent: false, alphaTest: 0.5, depthWrite: true, alphaToCoverage: quality === "high", envMapIntensity: 1.2 });
+    // Echtzeit-Licht ist härter als Cycles: Blattfarben leicht anheben, damit sie zum Rendering passen
+    m.color.setScalar(lift);
+    // Ersatz für Transluzenz: ein wenig Eigenleuchten aus der Blattfarbe (dünne Blätter wirken sonst zu dunkel)
+    m.emissiveMap = m.map;
+    m.emissive = new THREE.Color("#ffffff");
+    m.emissiveIntensity = lift > 1.5 ? 0.45 : 0.24;
+    m.userData.keepEmissive = true;
+    return m;
+  };
+  const shell = std("SG_Kunststoff_Weiss", { color: "#f8f7f3", roughness: 0.42, clearcoat: 0.1, clearcoatRoughness: 0.3, envMapIntensity: 1.0 });
+  const gaugeWater = std("SG_Anzeige_Fluessigkeit", { color: "#2b8fcb", emissive: "#1f6688", emissiveIntensity: 0.15, roughness: 0.15 });
   gaugeWater.userData.keepEmissive = true;
   return {
     shell,
     plastic: shell,
-    powder: std("Pulverlack", { clippingPlanes: [] }),
-    rubber: std("Endkappe", { clippingPlanes: [] }),
-    insert: std("Einsatz"),
-    soil: std("Erde"),
-    plate: leafy("Trennplatte"),
-    plateRim: std("Trennplatte-Rand"),
-    wick: std("Kapillarelement"),
-    reservoir: std("Reservoir", { transparent: true, opacity: 0.28, depthWrite: false }),
-    water: std("Wasser", { transparent: true, opacity: 0.55, depthWrite: false }),
-    gauge: std("Sichtfenster-Rahmen"),
+    powder: std("SG_Pulverlack_Weiss", { color: "#f2f0eb", roughness: 0.5, clearcoat: 0.15, clippingPlanes: [] }),
+    cap: std("SG_Kunststoff_Endkappe", { color: "#eeece6", roughness: 0.45, clippingPlanes: [] }),
+    rubber: std("SG_Gummi_Grau", { color: "#8e908b", roughness: 0.85, clippingPlanes: [] }),
+    insert: std("SG_Kunststoff_Schwarz", { color: "#1f211e", roughness: 0.55 }),
+    soil: std("SG_Erde", { color: "#3b2a1c", roughness: 0.96 }),
+    plate: std("SG_Kunststoff_Platte", { color: "#e7e4dc", roughness: 0.5 }),
+    wick: std("SG_Docht", { color: "#ece7da", roughness: 0.95, sheen: 0.5, sheenRoughness: 0.5, sheenColor: new THREE.Color("#ffffff") }),
+    reservoir: std("SG_Kunststoff_Klar", { color: "#eef6f7", roughness: 0.08, transparent: true, opacity: 0.28, depthWrite: false }),
+    water: std("SG_Wasser", { color: "#7cc3d3", roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false }),
+    gauge: std("SG_Fenster", { color: "#ffffff", roughness: 0.05, transparent: true, opacity: 0.2, depthWrite: false }),
     gaugeWater,
-    hole: std("Öffnung"),
-    leaf: leafy("Efeutute"),
-    jenny: leafy("Pfennigkraut"),
-    stem: std("Stängel"),
+    leaf: leafy("SG_Blatt", 1.25),
+    anth: leafy("SG_Anthurium", 1.75),
   };
 }
 
@@ -400,7 +395,9 @@ function Tag({
 function PartTag({ id, position, side }: { id: PartId; position: [number, number, number]; side?: "left" | "right" }) {
   const s = useScene();
   const info = PART_BY_ID[id];
-  const visible = s.driver === "manual" && LABEL_MODES[id].includes(s.mode) && (s.mode !== "explosion" || s.explode > 0.45);
+  // Handy: die Füllstandsanzeige nicht beschriften (zu eng neben dem Reservoir; sie steht in der Teileliste)
+  const crowded = s.layout === "narrow" && id === "indicator";
+  const visible = !crowded && s.driver === "manual" && LABEL_MODES[id].includes(s.mode) && (s.mode !== "explosion" || s.explode > 0.45);
   return (
     <Tag position={position} visible={visible} hot={s.hovered === id} side={side}>
       <b>{info.letter}</b>
@@ -413,7 +410,9 @@ function PartTag({ id, position, side }: { id: PartId; position: [number, number
 function Shell() {
   return (
     <Part id="shell">
-      <G name="shell" mat="shell" />
+      <G name="SG_Schale" mat="shell" />
+      <G name="SG_Halterung_L_Aufnahme" mat="shell" />
+      <G name="SG_Halterung_R_Aufnahme" mat="shell" />
       <PartTag id="shell" position={[-1.14, 0.2, 0.3]} side="left" />
     </Part>
   );
@@ -422,8 +421,9 @@ function Shell() {
 function Indicator() {
   return (
     <Part id="indicator" follow="shell">
-      <G name="gauge_frame" mat="gauge" shadows={false} />
-      <G name="gauge_water" mat="gaugeWater" shadows={false} />
+      <G name="SG_Anzeige_Rueckwand" mat="shell" shadows={false} />
+      <G name="SG_Anzeige_Wasser" mat="gaugeWater" shadows={false} />
+      <G name="SG_Anzeige_Fenster" mat="gauge" shadows={false} renderOrder={3} />
       <PartTag id="indicator" position={[0.08, 0.6, B + 0.02]} />
     </Part>
   );
@@ -441,7 +441,7 @@ function Insert() {
     const v = show.current;
     if (Math.abs(v - last.current) < 1e-4) return;
     last.current = v;
-    for (const m of [mats.leaf, mats.jenny, mats.stem]) {
+    for (const m of [mats.leaf, mats.anth]) {
       const fading = v < 0.999;
       if (m.transparent !== fading) {
         m.transparent = fading;
@@ -455,13 +455,17 @@ function Insert() {
   const keep = (i: number) => (o: THREE.Mesh | null) => {
     plants.current[i] = o;
   };
+  const { nodes } = useAsset();
+  const crown = useMemo(() => Object.keys(nodes).filter((k) => k.startsWith("SG_Pflanze_Krone")), [nodes]);
   return (
     <Part id="insert">
-      <G name="insert" mat="insert" />
-      <G name="soil" mat="soil" />
-      <G name="plant_stems" mat="stem" refFn={keep(0)} />
-      <G name="plant_pothos" mat="leaf" refFn={keep(1)} />
-      <G name="plant_jenny" mat="jenny" refFn={keep(2)} />
+      <G name="SG_Pflanzeinsatz" mat="insert" />
+      <G name="SG_Erde" mat="soil" />
+      <G name="SG_Pflanze_Ranken_Staengel" mat="leaf" refFn={keep(0)} />
+      <G name="SG_Pflanze_Ranken_Blaetter" mat="leaf" refFn={keep(1)} />
+      {crown.map((k, i) => (
+        <G key={k} name={k} mat="anth" refFn={keep(2 + i)} />
+      ))}
       <PartTag id="insert" position={[-1.12, 0.62, 0.28]} side="left" />
     </Part>
   );
@@ -470,8 +474,7 @@ function Insert() {
 function Plate() {
   return (
     <Part id="plate">
-      <G name="plate" mat="plate" />
-      <G name="plate_rim" mat="plateRim" />
+      <G name="SG_Trennplatte" mat="plate" />
       <PartTag id="plate" position={[0.25, PLATE_Y + 0.02, 0.3]} />
     </Part>
   );
@@ -480,8 +483,8 @@ function Plate() {
 function Reservoir() {
   return (
     <Part id="reservoir">
-      <G name="water" mat="water" shadows={false} renderOrder={1} />
-      <G name="reservoir" mat="reservoir" shadows={false} renderOrder={2} />
+      <G name="SG_Wasser" mat="water" shadows={false} renderOrder={1} />
+      <G name="SG_Reservoir" mat="reservoir" shadows={false} renderOrder={2} />
       <PartTag id="reservoir" position={[0.62, 0.1, 0.32]} />
     </Part>
   );
@@ -499,53 +502,39 @@ function Wicks() {
   });
   return (
     <Part id="wick">
-      <G name="wick_l" mat="wick" />
-      <G name="wick_r" mat="wick" />
+      <G name="SG_Docht_L" mat="wick" />
+      <G name="SG_Docht_R" mat="wick" />
       <PartTag id="wick" position={[-WICK_X - 0.09, WICK.top - 0.1, 0.02]} side="left" />
       <WaterFlow />
     </Part>
   );
 }
 
+/** v6: kein Einfüllschacht (nicht Teil des festgelegten Produkts). */
 function Service() {
-  return (
-    <Part id="service">
-      <G name="shaft" mat="plastic" />
-      <G name="shaft_collar" mat="plastic" />
-      <G name="shaft_hole" mat="hole" shadows={false} />
-      <PartTag id="service" position={[SHAFT.x - 0.06, SHAFT.top + 0.16, 0]} side="left" />
-    </Part>
-  );
+  return null;
 }
 
 const ROD_HALF = 1.5; // Spannweite im GLB (halbe Länge bis Endkappe)
 
 function Mount() {
-  const { nodes } = useAsset();
   const s = useScene();
   const montage = s.driver === "manual" && s.mode === "montage";
   const half = useDamped(montage ? WALL_INNER - 0.05 : ROD_HALF, 3.2, s.reduced);
   const arrows = useDamped(montage ? 1 : 0, 4, s.reduced);
-  const rod = useRef<THREE.Mesh | null>(null);
-  const ends = useRef<Record<string, THREE.Mesh | null>>({});
+  const left = useRef<THREE.Group>(null);
+  const right = useRef<THREE.Group>(null);
   const arrowRefs = useRef<(THREE.Object3D | null)[]>([]);
-  const base = useMemo(() => {
-    const get = (n: string) => (nodes[n] as THREE.Mesh | undefined)?.position.x ?? 0;
-    return { rodScale: (nodes.rod as THREE.Mesh | undefined)?.scale.x ?? 1, x: { sleeve_l: get("sleeve_l"), sleeve_r: get("sleeve_r"), cap_l: get("cap_l"), cap_r: get("cap_r") } as Record<string, number> };
-  }, [nodes]);
 
-  // Teleskop: Stange wird länger, Hülsen und Endkappen wandern nach außen
+  // Teleskop: Außenrohr (links) und Innenrohr (rechts) gleiten auseinander, die Endkappen wandern mit
   useFrame(() => {
-    const L = half.current;
-    if (rod.current) rod.current.scale.x = base.rodScale * ((2 * L - 0.3) / (2 * ROD_HALF - 0.3));
-    for (const [k, o] of Object.entries(ends.current)) {
-      if (!o) continue;
-      o.position.x = base.x[k] + (k.endsWith("_l") ? -1 : 1) * (L - ROD_HALF);
-    }
+    const d = half.current - ROD_HALF;
+    if (left.current) left.current.position.x = -d;
+    if (right.current) right.current.position.x = d;
     arrowRefs.current.forEach((o, i) => {
       if (!o) return;
       const side = i === 0 ? -1 : 1;
-      o.position.x = side * (L - 0.32);
+      o.position.x = side * (half.current - 0.32);
       o.scale.setScalar(Math.max(0.0001, arrows.current));
       o.visible = arrows.current > 0.01;
     });
@@ -553,15 +542,19 @@ function Mount() {
 
   return (
     <Part id="mount">
-      <G name="rod" mat="powder" refFn={(o) => (rod.current = o)} />
-      {["sleeve_l", "sleeve_r"].map((k) => (
-        <G key={k} name={k} mat="powder" refFn={(o) => (ends.current[k] = o)} />
-      ))}
-      {["cap_l", "cap_r"].map((k) => (
-        <G key={k} name={k} mat="rubber" refFn={(o) => (ends.current[k] = o)} />
-      ))}
-      <G name="strap_l" mat="powder" />
-      <G name="strap_r" mat="powder" />
+      <group ref={left}>
+        <G name="SG_Stange_Aussen" mat="powder" />
+        <G name="SG_Stange_Klemmring" mat="cap" />
+        <G name="SG_Endkappe_L" mat="cap" />
+        <G name="SG_Endkappe_L_Gummi" mat="rubber" />
+      </group>
+      <group ref={right}>
+        <G name="SG_Stange_Innen" mat="powder" />
+        <G name="SG_Endkappe_R" mat="cap" />
+        <G name="SG_Endkappe_R_Gummi" mat="rubber" />
+      </group>
+      <G name="SG_Halterung_L" mat="powder" />
+      <G name="SG_Halterung_R" mat="powder" />
       {/* Druckpfeile in der Montage-Ansicht */}
       <group position={[0, ROD.y, ROD.z]}>
         {[-1, 1].map((side, i) => (
@@ -1171,12 +1164,12 @@ export default function PlanterScene(props: SceneProps) {
       aria-hidden="true"
     >
       <SceneCtx.Provider value={ctx}>
-        <hemisphereLight args={["#fffaf0", "#e7eadc", 1.05]} />
+        <hemisphereLight args={["#ffffff", "#e3e8dc", 1.05]} />
         {/* Hauptlicht warm von links oben (wirft weiche Schatten: Blätter auf die Schale) */}
         <directionalLight
           position={[-3, 5, 4]}
           intensity={2.4}
-          color="#fff1df"
+          color="#fff8f0"
           castShadow={props.quality === "high"}
           shadow-mapSize={[2048, 2048]}
           shadow-bias={-0.0004}

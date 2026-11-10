@@ -1,4 +1,4 @@
-# Conversion-Audit (v5, heuristisch)
+# Conversion-Audit (v5/v6, heuristisch)
 
 Ziel: mehr **echte** Wartelisten-Anmeldungen (Double-Opt-in), ohne Vertrauen zu verspielen. Das Audit ist heuristisch, nicht gemessen. Messwerte gibt es erst mit echten Besucherdaten (siehe Hypothesen).
 
@@ -17,6 +17,7 @@ Ohne `NEXT_PUBLIC_WAITLIST_ENDPOINT` nimmt das Formular keine Adressen an (es sa
 | Fehlerzustände | leer, ungültig, Rate-Limit, Server weg | getestet mit Mock-Endpunkt: Meldung am Feld bzw. allgemeiner Fehler, Fokus im Feld |
 | Glaubwürdigkeit Technik | v4 ersetzte den künstlich wirkenden 3D-Erkunder durch Bilder | v5: neues Blender-Mastermodell als interaktiver Viewer mit vier Ansichten; Hinweis „Konzeptionelle Darstellung · Produkt in Entwicklung“ immer sichtbar. Das Modell ist erkennbar dasselbe Produkt, aber nicht fotoreal (siehe `docs/3d-rendering-report.md`). |
 | Ladezeit | 3D bringt three.js mit | lädt erst in der Nähe des Abschnitts; davor ein Standbild an derselben Stelle. Erstladung JS laut Build 111 kB (gzip), 3D-Teil zusätzlich ca. 190 kB JS (gzip) + 521 KB Modell. |
+| Technik-Abschnitt (v6) | Der Echtzeit-Viewer allein wirkte weniger hochwertig als die Fotos. | Davor ein Scroll-Film aus echten Cycles-Renderings (Teardown in fünf Schritten, kurze Texte), danach der Viewer zum Selbst-Erkunden mit demselben Modell. Kein Einfluss auf Hero, Texte oder Formular. Mehr Seitenlänge: der Film heftet sich für ca. 2,6 Bildschirmhöhen an. |
 | Ausfallsicherheit | Wenn das Modell nicht lud, stürzte die ganze Seite ab | Fehlergrenze: Bild mit Hinweis, Rest der Seite bleibt bedienbar |
 | Aussagen | keine Preise, Termine, Tage ohne Gießen, Sicherheits-, Schimmel- oder Nachhaltigkeitsversprechen, keine Zahl der Anmeldungen, keine Testimonials | geprüft im gesamten Seitentext. Ungeprüfte Funktionen mit „soll“, „geplant“, „Konzept“. |
 | Vertrauen | Entwicklungshinweis im Hero, im Viewer und im Footer; Datenschutz-Link am Formular | beibehalten. **Impressum und Datenschutz enthalten noch Platzhalter → Launch-Voraussetzung.** |
