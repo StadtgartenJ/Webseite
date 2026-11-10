@@ -41,7 +41,7 @@ Die Website erfindet keine Betreiberdaten. Solange Platzhalter drin sind, ist di
 - [ ] **Enforce HTTPS** einschalten, sobald das Zertifikat bereit ist
 - [ ] Live prüfen: Startseite, `/impressum/`, `/datenschutz/`, `/bestaetigt/`, Neuladen auf Unterseiten, `www` leitet um
 - [ ] 3D-Viewer live auf einem echten Handy (iOS Safari, Android Chrome) und einem Laptop: Laden, Drehen, vier Ansichten, Bildrate
-- [ ] Scroll-Film (v6) auf Handy und Laptop: flüssiges Scrubbing, keine Lücken beim schnellen Scrollen, Ladegewicht im Mobilfunknetz
+- [ ] Technik-Abschnitt (v7) auf Handy und Laptop: Schnittbild scharf, Viewer-Modi, „Technik im Detail entdecken“ klappt auf
 - [ ] Formular live mit einer eigenen Adresse
 
 ## D · Aufräumen bei GitHub (optional, aus der Verlaufsbereinigung)

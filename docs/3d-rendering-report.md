@@ -1,104 +1,97 @@
-# 3D-Bericht v6: Premium-Teardown
+# 3D- und Bildbericht v7: Konsistenz
 
-Stand: 10. 11. 2026 · Branch `v6-teardown` · betrifft nur den Abschnitt „Schön von außen. Durchdacht von innen.“
+Stand: 10. 11. 2026 · Branch `v7-konsistenz` (aufbauend auf `v6-teardown`) · Spezifikation: `docs/stadtgarden-master-design.md`
 
 ## Ergebnis in Kürze
 
+Alle Produktbilder der Website und der 3D-Viewer kommen jetzt aus **einem** Blender-Modell (`blender/v6/`). Es gibt keine KI-Bilder mehr auf der Seite und damit keine abweichenden Varianten: kein schwebender Kasten, keine J-Haken, kein seitlich versetztes oder leuchtend blaues Sichtfenster.
+
 | Lieferung | Datei | Stand |
 | --- | --- | --- |
-| Bearbeitbare Blender-Masterdatei | `blender/v6/stadtgarden_v6.blend` (gebaut von `blender/v6/sg_run.py`) | fertig |
-| Rendering montiert, 4K | `blender/v6/renders/stadtgarden_v6_produkt_4k.png` (3840 × 2160, Cycles, 200 Samples) | fertig, geprüft |
-| Explosionsansicht, 4K | `blender/v6/renders/stadtgarden_v6_explosion_4k.png` | fertig, geprüft |
-| Teardown-Animation | in der Masterdatei (240 Bilder, 24 fps, Kamera `Kamera_Film`) | fertig |
-| Vorgerenderte Bildsequenz | `public/film/teardown-1080/` und `teardown-720/` (94 Bilder, WebP) | siehe Abschnitt Scroll-Film |
-| Interaktives GLB | `public/models/stadtgarden-v6.glb` (1,5 MB, ca. 188 000 Dreiecke, Meshopt + WebP) | fertig |
-| Website | Scroll-Film + interaktiver Viewer im Technik-Abschnitt | fertig, lokal geprüft |
+| Blender-Master (eigenständig) | `blender/v7/stadtgarden_v7.blend` (≈15 MB, Texturen eingebettet, fünf Szenen, keine Skripte nötig) | fertig |
+| Bauskripte | `blender/v6/sg_model.py`, `sg_plants.py`, `sg_leaftex.py`, `sg_scene.py`, `sg_shots.py`, `sg_master7.py` | fertig |
+| Bildmaster (Cycles, PNG) | `blender/v6/renders/v7/*.png` (lokal, per `.gitignore` ausgeschlossen) | fertig |
+| Bildmaster (JPEG q95) | `assets-src/v7/*.jpg` | fertig |
+| Web-Bilder | `public/images/v7-*.avif/.webp` (`npm run images`) | fertig |
+| Interaktives GLB | `public/models/stadtgarden-v7.glb` (1,4 MB, Meshopt + WebP, gleiche Bepflanzung) | fertig |
+| Qualitätstor | `docs/qualitaetstor/1…8-*.jpg` | fertig |
 
-Ehrlich: Die Cycles-Bilder wirken wie ein hochwertiges Produktfoto aus dem Studio, aus der Nähe erkennt man bei den Hängepflanzen aber, dass es gerenderte Blattflächen sind. Die Echtzeit-Version im Browser ist einfacher (kein Pfadverfolgungs-Licht, keine Transluzenz der Blätter) und zeigt erkennbar dasselbe Produkt.
+## Modelländerungen (gegenüber v6)
 
-## Pipeline
+- **Sichtfenster** genau mittig (x = 0), schmal und senkrecht, als durchgehender Schlitz mit Fenster, Flüssigkeit und Rückwand. Teil der Schale, bewegt sich in der Explosion mit ihr. Farbe gedämpftes Aqua (#6FAFAA), kein Leuchten, kein Sensor.
+- **Montage:** Der Kasten steht mit dem Boden auf dem äußeren Fenstersims. Eine weiße Spannstange liegt hinter dem oberen Kastenrand in der Laibung, zwei breite Bügel laufen über die Stange zur Kastenrückseite. Keine zweite Stange, keine J-Haken, keine Seile.
+- Wasser im Reservoir gedämpft (#B7DCD7). Schalenkanten etwas feiner gefast.
+- Keine neuen Funktionsteile. Sechs Teile: Schale, Pflanzeinsatz, Trennplatte, zwei Dochte, Reservoir, Halterung.
+- **Bepflanzung neu (v7.1):** Goldene Efeutute links und in der Mitte, Gold-Pfennigkraut rechts – wie im Produkt-Steckbrief. Blattumrisse als Geometrie, Blatttexturen prozedural erzeugt (`sg_leaftex.py`, Atlas in `blender/v6/tex_v7/`). Die Poly-Haven-Scans (Anthurium, Periwinkle) werden nicht mehr verwendet.
+- **Substrat und Wurzeln:** Erde mit Rindenstücken und Perlitkörnern (auch auf der Schnittfläche), dazu ein Wurzelgeflecht auf der Schnittebene; einige Wurzeln wachsen zu den Dochten. Im geschlossenen Kasten liegen die Wurzeln unsichtbar im Substrat; im Web-Modell entfallen sie.
 
-```
-blender/v6/sg_model.py    Produkt: alle Bauteile als eigene, benannte Objekte, echte Maße in Metern, PBR-Materialien
-blender/v6/sg_plants.py   Bepflanzung aus Scan-Assets (Poly Haven, CC0)
-blender/v6/sg_studio.py   Hohlkehle, Softboxen, HDRI, Kameras, Cycles-Einstellungen
-blender/v6/sg_anim.py     Teardown-Animation (Keyframes an den Gruppen-Empties, Kamera-Rig)
-blender/v6/sg_run.py      Einstieg: build_master(), render(), render_sequence()
-blender/v6/sg_export.py   Web-GLB (vereinfacht), danach scripts/build-model-v6.sh
-scripts/build-film.py     PNG-Sequenz → WebP für den Scroll-Film
-```
+## Szenen und Einstellungen (`sg_scene.py`, `sg_shots.py`)
 
-In Blender (Skript-Editor):
+Fassade aus Putz mit Faschen und Gesims, Holzfenster mit Glas, Innenraum mit Vorhang, Sims aus Stein. Warmes Sonnenlicht (Elevation 22°, Farbe 1,0/0,87/0,73), Blattschatten durch Schatten-Kopien der Pflanzen (Gobo), warme Umgebung #D9D2C6. Die Sonne wird per Light Linking vom Fensterglas ausgeschlossen (sonst grelle Spiegelung).
+
+| Bild | Szene | Auflösung | Kamera | Einsatz |
+| --- | --- | --- | --- | --- |
+| hero | Fenster | 2560 × 1440 | 34 mm, leicht von unten | Hero Desktop, Link-Vorschau |
+| hero_mobil | Fenster | 1600 × 1200 | 40 mm | Hero Handy |
+| studio | Studio #E3E9D7 | 1800 × 1800 (Web 1800 × 1200) | 55 mm | Produkt-Reveal |
+| seite | Fenster | 1800 × 1900 (Web 1624 × 1900) | 38 mm, schräg | Vorteil „Garten am Fenster“ |
+| montage | Fenster | 2000 × 1400 | 40 mm, f/4 | Vorteil „Einspannen statt bohren“ |
+| anzeige | Fenster | 1800 × 1800 | 70 mm, f/3,2 | Vorteil „Weniger gießen“ |
+| schnitt | Studio | 2400 × 1500 (Web 1920 × 1200) | 50 mm, f/11 | Technik Schritt 1 |
+| stadt | Fassade, 3 Fenster | 2400 × 1600 | 32 mm, f/4 | „Mach Platz für mehr Grün“ |
+| nah | Fenster | 2000 × 1500 | 45 mm, f/4 | Abschluss / Warteliste |
+| explosion | Studio | 2400 × 1500 (Web 16:10) | Bild 168 der Animation | Ersatzbild ohne WebGL |
+
+Renderer: Cycles, GTX 1080 mit **CUDA** (OptiX bricht mit Kernel-Fehler ab), 128–192 Samples mit Denoiser, AgX, Belichtung je Bild (Szene +0,15, Studio −0,35). Zeit pro Bild 1–2,5 Minuten.
+
+Schnittbild: zwei Boolean-Fenster links und rechts der Anzeige (die Mitte mit dem Sichtfenster bleibt stehen), bis knapp hinter die Dochte, damit sie sichtbar sind. Für dieses Bild bekommt das Wasser ein helles, leicht trübes Aqua und das Reservoir eine mattierte Oberfläche, dazu ein weiches Zusatzlicht. Alles wird nach dem Rendern zurückgesetzt.
+
+**Ohne Skripte:** `blender/v7/stadtgarden_v7.blend` öffnen, oben die Szene wählen (Studio, Schnitt, Explosion, Fenster, Fassade), F12. Weitere Kameras der Fensterszene: Kamera_hero_mobil, _seite, _montage, _anzeige, _nah (als aktive Kamera setzen). Schnitt, abgesenkter Boden und heller Hintergrund hängen an den Szenen-Eigenschaften `sg_schnitt`, `sg_explosion`, `sg_hell` (Treiber).
+
+**Mit Skript** (Datei neu bauen und alle Bilder rendern):
 
 ```python
 import sys; sys.path.insert(0, r"C:\Users\Jay\Documents\GitHub\Webseite\blender\v6")
-import sg_run
-sg_run.build_master()                                    # baut und speichert stadtgarden_v6.blend
-sg_run.render("produkt", r"…\produkt.png", (3840, 2160), 200)
-sg_run.render_sequence(r"…\teardown_1080", (1080, 1080), 96, 0, 186, 2)
+import sg_master7
+sg_master7.build()                       # baut und speichert blender/v7/stadtgarden_v7.blend
+for n in ("studio", "schnitt", "explosion", "hero", "hero_mobil", "montage", "anzeige", "seite", "nah", "stadt"):
+    sg_master7.render_shot(n, r"…\renders\v7b")
 ```
 
-Grafikkarte: GTX 1080 mit **CUDA** (OptiX meldet bei dieser Karte einen Kernel-Fehler). Zeiten: 4K-Standbild ca. 5 min, Sequenzbild 1080² ca. 25–60 s.
-
-## Bauteile (getrennte Objekte, Gruppen für die Animation)
-
-| Gruppe (Empty) | Objekte |
-| --- | --- |
-| `GRP_Schale` | `SG_Schale` (Wand 5 mm, gerollter Rand, Langloch), `SG_Anzeige_Fenster`, `SG_Anzeige_Wasser`, `SG_Anzeige_Rueckwand`, `SG_Halterung_L/R_Aufnahme` |
-| `GRP_Reservoir` | `SG_Reservoir` (klar, 2,5 mm), `SG_Wasser` |
-| `GRP_Dochte` | `SG_Docht_L`, `SG_Docht_R` (Vlies, unten nass) |
-| `GRP_Trennplatte` | `SG_Trennplatte` (echtes Lochraster, Schlitze für die Dochte) |
-| `GRP_Pflanzeinsatz` | `SG_Pflanzeinsatz` (schwarz, Lüftungsschlitze, Dochtdurchlass), `SG_Erde` (Relief, Perlit, Rinde), Pflanzen |
-| `GRP_Halterungssystem` | `SG_Stange_Aussen`, `SG_Stange_Innen` (teleskopierbar), `SG_Stange_Klemmring`, `SG_Endkappe_L/R` + Gummi, `SG_Halterung_L/R` (breite Bänder über der Stange) |
-
-Maße (Annahmen aus den Konzeptbildern, keine Konstruktion): Schale 80 × 24 × 27 cm, Stange 1,0 m mit Endkappen, Bänder 6 cm breit. Keine J-Haken, kein Einfüllschacht, keine weiteren Funktionen.
-
-## Teardown-Animation (240 Bilder, 24 fps)
-
-| Bilder | Phase |
-| --- | --- |
-| 0–24 | montiertes Produkt, Kamera fährt langsam an |
-| 24–66 | Pflanzeinsatz hebt sich |
-| 54–90 | Trennplatte wird sichtbar |
-| 80–108 | Kapillardochte werden freigelegt |
-| 96–136 | Reservoir und Schale fahren auseinander |
-| 120–150 | Halterungssystem hebt ab, Aufbau komplett sichtbar |
-| 150–186 | Halten, Kamera kreist weiter |
-| 186–240 | alles setzt sich in umgekehrter Reihenfolge zusammen |
-
-Alle Bewegungen sind reine Verschiebungen entlang der Montageachse mit weichem Ein- und Auslauf (Bezier, Auto-Clamped), ohne Überschwingen.
-
-## Qualitätsprüfung (an den echten Renderings)
-
-| Kriterium | Befund |
-| --- | --- |
-| Geometrie | Rundungen sauber, Rand gerollt, Wandstärken sichtbar, Langloch mit Fenster und Flüssigkeit. Geprüft in Nahaufnahmen von vorne und hinten. |
-| Materialien | Schale seidenmatt mit leichter Mikrostruktur, Bügel pulverbeschichtet (Orangenhaut), Einsatz schwarz genarbt, Reservoir klar mit Wasser (Absorption), Dochte als Vlies. |
-| Pflanzen | Krone aus eingescannten Anthurium-Pflanzen; Ranken mit eingescannten Blättern und Stängeln. Wirkt aus Produktfoto-Abstand natürlich; aus der Nähe sind die Ranken als Blattflächen erkennbar. Echte Efeutute/Pfennigkraut gibt es frei lizenziert nicht in vergleichbarer Qualität. |
-| Befestigung | Bänder kommen von der Rückwand, laufen über die Stange und sind unten in Aufnahmen eingehängt. Plausibel als Konzept, **nicht** statisch geprüft. |
-| Technische Plausibilität | Wasser unten, Dochte durch die Platte bis ins Substrat, Wasserstand im Fenster sichtbar. Ob das im Alltag genügt, ist ungetestet. |
-| Browser | gleiche Teile und Proportionen; Blätter ohne Transluzenz, Glas als einfache Transparenz. |
+Danach PNG → `assets-src/v7/*.jpg` (q95) und `npm run images`.
 
 ## Website
 
-- **Scroll-Film** (`components/explorer/TeardownFilm.tsx`): Abschnitt wird angeheftet, ScrollTrigger (scrub) zeichnet die Blender-Bilder auf ein Canvas, fünf kurze Texte zu den Phasen. Bilder laden erst in der Nähe des Abschnitts. „Bewegung reduzieren“: kein Anheften, Endbild der Explosion und alle Texte untereinander.
-- **Interaktiver Viewer** (`PlanterScene.tsx`, unverändert bedienbar): lädt jetzt `stadtgarden-v6.glb`. Drehen, Zoomen, Produkt / Innenleben / Wasserweg / Montage, einzelne Teile herausziehen.
-- Standbild vor dem Laden: Aufnahme aus dem Viewer selbst. Ohne WebGL: 4K-Explosionsrendering aus Blender.
+- Technik-Abschnitt als eine zusammenhängende Strecke: Titel „Sechs Teile. Ein Prinzip.“ → Schnittbild mit „Der geplante Wasserweg.“ (drei Schritte) → großer Viewer (Produkt / Innenleben / Wasserweg / Montage) → aufklappbar „Technik im Detail entdecken“ mit den sechs Teilen.
+- Der angeheftete Scroll-Film (`TeardownFilm.tsx`, `public/film/`, 4–8 MB) ist entfernt. Die Explosion bleibt im Viewer (Modus Innenleben, Teile einzeln herausziehbar).
+- Viewer: Sichtfenster gedämpftes Aqua ohne Leuchten, Wassertropfen im Modus Wasserweg ebenfalls gedämpft, Kontaktschatten direkt unter dem Boden (kein Schweben), Montage-Umgebung ohne Fensterkämpfer auf Stangenhöhe (sonst las er sich wie eine zweite Stange). Vorschaubild vor dem Laden neu aus dem Viewer aufgenommen.
+- Ohne WebGL: Explosionsbild aus Blender. „Bewegung reduzieren“: keine Anheftungen, Inhalte vollständig sichtbar.
+
+## Gemessen (lokal, statischer Export)
+
+| Messung | Wert |
+| --- | --- |
+| Export `out/` gesamt | 7,3 MB (davon GLB 1,4 MB, nur bei Bedarf) |
+| Desktop: LCP / CLS / geladen beim Start | 0,20 s / 0 / 540 KB |
+| Handy, gedrosselt: LCP / CLS / geladen | 1,70 s / 0 / 536 KB |
+| Breiten 1440, 1280, 1024, 768, 390, 360 | kein horizontales Scrollen, keine abgeschnittenen Überschriften, keine defekten Bilder, keine Konsolenfehler |
+
+Gemessen in Chromium mit Software-Rendering; echte Geräte nicht geprüft.
 
 ## Lizenzen
 
 | Asset | Quelle | Lizenz |
 | --- | --- | --- |
-| Anthurium Botany 01 (Modell, Texturen 4K) | polyhaven.com/a/anthurium_botany_01 – Rob Tuytel, Rico Cilliers | CC0 1.0 |
-| Periwinkle Plant (Texturatlas 4K) | polyhaven.com/a/periwinkle_plant – Amal Kumar | CC0 1.0 |
 | Studio Small 09 (HDRI) | polyhaven.com/a/studio_small_09 | CC0 1.0 |
-| Produkt, Erde, Materialien | eigene Geometrie und Prozedur-Materialien (Skripte im Repo) | eigen |
-| Werkzeuge | Blender 5.2 (GPL), glTF-Transform (MIT), three.js / React Three Fiber (MIT), GSAP (frei, Standardlizenz) | kostenlos |
+| Produkt, Pflanzen, Blattatlas, Fassade, Fenster, Materialien | eigene Geometrie, prozedurale Texturen und Materialien | eigen |
+| Werkzeuge | Blender 5.2 (GPL), glTF-Transform (MIT), sharp (Apache 2.0), three.js / R3F (MIT), GSAP | kostenlos |
 
-Die Assets liegen lokal in `blender/assets/` und sind über `.gitignore` vom Repository ausgeschlossen (über 100 MB).
+Das HDRI liegt lokal in `blender/assets/` (per `.gitignore` ausgeschlossen) und ist in `stadtgarden_v7.blend` eingebettet (1024 px).
 
-## Grenzen
+## Offene Punkte und Grenzen
 
-1. Echte Efeutute und Pfennigkraut wie auf den Konzeptfotos: nur mit kostenpflichtigen oder selbst gescannten Pflanzen.
-2. Echtzeit-Version: Leistung auf echten Handys ungeprüft (getestet nur mit Software-Rendering).
-3. Der Scroll-Film wiegt ca. 4–8 MB (je nach Bildschirm, nur bei Bedarf geladen).
+1. **Pflanzen:** Efeutute und Pfennigkraut sind modelliert, nicht gescannt. Aus Produktfoto-Abstand stimmig; in extremen Nahaufnahmen fehlen Details wie Luftwurzeln, Blattränder mit Unregelmäßigkeiten und Gebrauchsspuren.
+2. **Schnittbild:** Wurzeln liegen als Geflecht auf der Schnittebene (Illustration), nicht als simuliertes Wurzelsystem.
+3. **Fassaden:** sauber, aber schlicht (kein Straßenleben, keine Nachbarhäuser).
+4. **Montage:** Haltekraft, Eignung von Sims und Laibung, Öffnen des Fensters, Ablauf, Nachfüllen, Reinigung, Gewicht und Absturzsicherung sind ungeprüft. Die Seite behauptet dazu nichts.
+5. Viewer-Leistung auf echten Handys ungeprüft.

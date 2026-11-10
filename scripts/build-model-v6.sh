@@ -5,8 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 blender/v6/sg_export.py -- public/models/stadtgarden-v6-raw.glb
-npx --yes @gltf-transform/cli@4.5.1 optimize public/models/stadtgarden-v6-raw.glb public/models/stadtgarden-v6.glb \
+npx --yes @gltf-transform/cli@4.5.1 optimize public/models/stadtgarden-v6-raw.glb public/models/stadtgarden-v7.glb \
   --compress meshopt --texture-compress webp --texture-size 1024 \
   --simplify false --join false --palette false --flatten false --instance false
 rm -f public/models/stadtgarden-v6-raw.glb
-ls -la public/models/stadtgarden-v6.glb
+ls -la public/models/stadtgarden-v7.glb

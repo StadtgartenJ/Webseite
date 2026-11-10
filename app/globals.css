@@ -490,7 +490,7 @@ a {
     inset: 0;
   }
   .hero__img {
-    object-position: 0% 50%;
+    object-position: 70% 50%;
   }
   /* Lesbarkeit: das helle Mauerwerk links wird noch ein wenig heller */
   .hero__media::after {
@@ -575,24 +575,23 @@ a {
   }
 }
 
-/* ── 02 · Produkt-Reveal (Moos, Studiolicht) ────────────────── */
+/* ── 02 · Produkt-Reveal (helles Studio, v7) ───────────────── */
 .reveal {
   position: relative;
   overflow: hidden;
-  color: var(--on-dark);
-  /* Studiolicht: hell beim Produkt, ruhiges Moos hinter dem Text */
-  /* Handy: Licht unten beim Produkt, oben dunkles Moos hinter dem Text */
+  color: var(--forest);
+  /* v7: helles Studio statt dunklem Moos – Grund passt zum Studiorendering (Salbei/Creme) */
   background:
-    radial-gradient(95% 42% at 50% 82%, #8c9865 0%, #74844f 34%, rgba(86, 102, 63, 0) 72%),
-    linear-gradient(180deg, #42502d 0%, #48562f 42%, var(--moss) 68%, var(--moss-dark) 100%);
+    radial-gradient(95% 42% at 50% 82%, #f2f5ea 0%, #e6ecdb 40%, rgba(222, 230, 210, 0) 74%),
+    linear-gradient(180deg, #dfe6d2 0%, #e2e9d6 50%, #d8e0ca 100%);
   border-radius: 0 0 50% 50% / 0 0 clamp(48px, 9vw, 140px) clamp(48px, 9vw, 140px);
   padding-block: clamp(72px, 10vh, 120px) clamp(96px, 14vh, 180px);
 }
 @media (min-width: 1024px) {
   .reveal {
     background:
-      radial-gradient(52% 70% at 74% 46%, #8c9865 0%, #74844f 32%, rgba(86, 102, 63, 0) 70%),
-      linear-gradient(100deg, #42502d 0%, #48562f 36%, var(--moss) 58%, var(--moss-dark) 100%);
+      radial-gradient(52% 70% at 72% 50%, #f1f4e9 0%, #e5ebda 36%, rgba(222, 230, 210, 0) 72%),
+      linear-gradient(100deg, #dae2cc 0%, #dfe6d2 40%, #e2e9d6 70%, #d5ddc6 100%);
   }
 }
 .reveal__grid {
@@ -610,7 +609,7 @@ a {
 .reveal__text {
   font-size: var(--t-lead);
   line-height: 1.6;
-  color: #e9ede0;
+  color: var(--ink-2);
   max-width: 38ch;
 }
 .reveal__product {
@@ -818,52 +817,30 @@ a {
   }
 }
 
-/* Scroll-Film (Teardown aus Blender, Bildsequenz) */
-.film {
-  position: relative;
-  height: 360svh; /* 1 Bildschirm Bühne + 2,6 Bildschirme Scrollweg */
-  margin-bottom: clamp(56px, 9vh, 112px);
-}
-.film__stage {
-  position: sticky;
-  top: 0;
+/* Technik v7: Schnittbild + Wasserweg, darunter der Viewer, Details aufklappbar */
+.inside__story {
   display: grid;
   gap: 28px;
-  align-content: center;
-  height: 100svh;
-  padding-block: calc(var(--header-h) + 8px) 24px;
+  margin-bottom: clamp(40px, 6vh, 72px);
 }
-.film__frame {
+.inside__cut {
   position: relative;
-  width: 100%;
-  max-width: min(100%, calc(100svh - var(--header-h) - 220px));
-  aspect-ratio: 1;
-  margin-inline: auto;
+  margin: 0;
+  aspect-ratio: 16 / 10;
   border-radius: var(--radius-xl);
   overflow: hidden;
-  background: #c9d5bc;
-  box-shadow: 0 30px 80px -40px rgba(23, 63, 53, 0.45);
+  background: #dfe5d4;
 }
-.film__poster,
-.film__canvas {
-  position: absolute;
-  inset: 0;
+.inside__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 40%;
 }
-.film__canvas {
-  opacity: 0;
-  transition: opacity 300ms ease;
-}
-.film.is-ready .film__canvas {
-  opacity: 1;
-}
-.film__badge {
+.inside__badge {
   position: absolute;
   top: 16px;
   left: 16px;
-  margin: 0;
   padding: 7px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ivory) 90%, transparent);
@@ -872,7 +849,18 @@ a {
   font-weight: 600;
   line-height: 1.25;
 }
-.film__badge::before {
+@media (max-width: 559px) {
+  .inside__badge {
+    top: 12px;
+    left: 12px;
+    padding: 6px 10px;
+    font-size: 0.8125rem;
+  }
+  .inside__badge-more {
+    display: none;
+  }
+}
+.inside__badge::before {
   content: "";
   display: inline-block;
   width: 7px;
@@ -882,130 +870,124 @@ a {
   background: var(--apricot);
   vertical-align: 1px;
 }
-.film__copy {
+.inside__flow {
   display: grid;
   gap: 18px;
   align-content: center;
 }
-.film__count {
+.inside__flow h3 {
   margin: 0;
-  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-  font-variation-settings: var(--display-axes);
-  font-size: 0.9375rem;
-  letter-spacing: 0.04em;
-  color: var(--ink-2);
-}
-.film__text {
-  display: grid;
-}
-.film__step {
-  grid-area: 1 / 1;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 360ms var(--ease-out), transform 360ms var(--ease-out);
-}
-.film__step.is-on {
-  opacity: 1;
-  transform: none;
-}
-.film__step h3,
-.film__list h3 {
-  margin: 0 0 8px;
   font-size: var(--t-display-3);
   line-height: 1.1;
   color: var(--forest);
 }
-.film__step p,
-.film__list p {
-  margin: 0;
-  max-width: 34ch;
-  font-size: var(--t-lead);
-  line-height: 1.55;
-  color: var(--ink-2);
-}
-.film__bar {
-  display: flex;
-  gap: 6px;
-}
-.film__bar span {
-  height: 4px;
-  flex: 1;
-  max-width: 44px;
-  border-radius: 4px;
-  background: rgba(23, 63, 53, 0.15);
-  transition: background 300ms ease;
-}
-.film__bar span.is-on {
-  background: var(--forest);
-}
-.film__hint {
-  margin: 0;
-  font-size: var(--t-small);
-  color: var(--ink-2);
-}
-.film__list {
+.inside__flow ol {
   display: grid;
-  gap: 22px;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
+  counter-reset: flow;
 }
-.film--static {
-  height: auto;
+.inside__flow li {
+  counter-increment: flow;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
+  align-items: start;
+  font-size: var(--t-lead);
+  line-height: 1.45;
+  color: var(--ink);
 }
-.film--static .film__stage {
-  position: static;
-  height: auto;
-  padding-block: 0;
+.inside__flow li::before {
+  content: counter(flow);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--lime);
+  color: var(--forest);
+  font-weight: 700;
+  font-size: 0.9375rem;
 }
-@media (prefers-reduced-motion: reduce) {
-  .film {
-    height: auto;
-  }
-  .film__stage {
-    position: static;
-    height: auto;
-    padding-block: 0;
-  }
+.inside__note {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--t-small);
+  line-height: 1.55;
+  color: var(--ink-2);
 }
-.film--static .film__frame {
-  max-width: 640px;
+.inside__more {
+  margin-top: clamp(28px, 4vh, 44px);
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
 }
-.film--static .film__canvas {
+.inside__more summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 1.5px solid var(--forest);
+  color: var(--forest);
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+.inside__more summary::-webkit-details-marker {
   display: none;
 }
+.inside__more summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 200ms var(--ease-out);
+}
+.inside__more[open] summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+.inside__parts {
+  display: grid;
+  gap: 14px 40px;
+  margin: 24px 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.inside__parts li {
+  font-size: var(--t-body);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.inside__parts b {
+  display: block;
+  color: var(--forest);
+  font-size: 1.0625rem;
+  margin-bottom: 2px;
+}
 @media (min-width: 1024px) {
-  .film__stage {
+  .inside__story {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    column-gap: clamp(32px, 4vw, 72px);
+    column-gap: clamp(32px, 4vw, 64px);
     align-items: center;
   }
-  .film__frame {
-    max-width: min(100%, calc(100svh - var(--header-h) - 48px));
-    margin-inline: 0 auto;
+  .inside__parts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .inside__parts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 1023px) {
-  .film__stage {
-    gap: 18px;
-    padding-block: calc(var(--header-h) - 12px) 16px;
-  }
-  .film__frame {
+  .inside__cut {
     border-radius: var(--radius-l);
   }
-  .film__copy {
-    gap: 12px;
-    min-height: 168px;
-    align-content: start;
-  }
-  .film__hint {
-    display: none;
-  }
-}
-.inside__explore {
-  margin: 0 0 20px;
-  font-size: var(--t-lead);
-  color: var(--ink-2);
 }
 
 /* 3D-Erkunder */
@@ -1016,7 +998,8 @@ a {
 .explorer__stage {
   position: relative;
   height: clamp(480px, 78svh, 800px);
-  background: radial-gradient(80% 80% at 50% 42%, var(--botanical-pale) 0%, #e9f0dd 64%, #dbe6c9 100%);
+  /* v7: weicher Lichthof statt Kasten – die Bühne geht in den Salbei-Grund über */
+  background: radial-gradient(70% 72% at 50% 46%, #f6f8f0 0%, #eef3e5 42%, rgba(229, 238, 215, 0) 78%);
   border-radius: var(--radius-xl);
   overflow: hidden;
   isolation: isolate;

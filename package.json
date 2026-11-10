@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "npx serve out",
-    "images": "node scripts/optimize-images.mjs",
+    "images": "node scripts/optimize-images-v7.mjs",
+    "model": "bash scripts/build-model-v6.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

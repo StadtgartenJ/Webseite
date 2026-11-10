@@ -1,3 +1,5 @@
+> Historisch (v4). Aktueller Stand: `docs/3d-rendering-report.md` und `docs/stadtgarden-master-design.md`.
+
 # Produktvisualisierung: Qualitätstor und Entscheidung (v4)
 
 ## Entscheidung

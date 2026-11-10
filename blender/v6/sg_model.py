@@ -21,17 +21,17 @@ from mathutils import Vector
 # ── Maße (m) ──────────────────────────────────────────────────────────────
 U = 1 / 3  # Viewer-Einheit
 A, B, H = 1.2 * U, 0.36 * U, 0.82 * U  # halbe Länge 0,40 · halbe Tiefe 0,12 · Höhe 0,273
-RX, RZ, RC = 0.4 * U, 0.3 * U, 0.28 * U  # Bodenrundung vorne, seitlich, Eckradius von oben
+RX, RZ, RC = 0.4 * U, 0.18 * U, 0.28 * U  # flachere Standfläche für den Sims  # Bodenrundung vorne, seitlich, Eckradius von oben
 T = 0.005  # Wandstärke Schale
 GAP = 0.004
 
-GAUGE = dict(x=-0.06, z=0.150, half=0.034, r=0.0105, depth=0.0025)
+GAUGE = dict(x=0.0, z=0.150, half=0.034, r=0.0105, depth=0.0025)  # genau mittig (Spezifikation 3)
 
 RES = dict(top=0.093, t=0.0025, water=0.066)  # Reservoir
 PLATE = dict(z=0.097, th=0.004, hole_r=0.0026, pitch=0.0115, border=0.012)
 INS = dict(bottom=0.113, top=H - 0.006, t=0.0032)
 WICK = dict(x=0.205, y=0.0, w=0.05, th=0.003, bottom=0.012, top=0.150)
-ROD = dict(r=0.0125, r_in=0.0105, half=0.50, z=H + 0.055)
+ROD = dict(r=0.0125, r_in=0.0105, half=0.50, z=H + 0.02)  # hinter dem oberen Kastenbereich
 STRAP = dict(x=0.26, w=0.06, th=0.004, z0=0.165)
 CAP = dict(r=0.030, len=0.022)
 
@@ -421,12 +421,12 @@ def materials():
     m, nt, b = mat("SG_Wasser", color="#FFFFFF", rough=0.02, trans=1.0, ior=1.333, spec=0.5)
     out = nt.nodes["Material Output"]
     vol = nt.nodes.new("ShaderNodeVolumeAbsorption")
-    vol.inputs["Color"].default_value = srgb("#7CC7D6")
-    vol.inputs["Density"].default_value = 6.0
+    vol.inputs["Color"].default_value = srgb("#B7DCD7")
+    vol.inputs["Density"].default_value = 1.2
     nt.links.new(vol.outputs["Volume"], out.inputs["Volume"])
 
     # Anzeige: gefärbte Flüssigkeit im Sichtfenster (Konzept: Wasserstand gut lesbar)
-    m, nt, b = mat("SG_Anzeige_Fluessigkeit", color="#1A78B8", rough=0.12, coat=0.6, coat_rough=0.05, sss=0.0, sss_scale=0.004)
+    m, nt, b = mat("SG_Anzeige_Fluessigkeit", color="#6FAFAA", rough=0.15, coat=0.3, coat_rough=0.08, sss=0.15, sss_scale=0.003)
     b.inputs["Subsurface Radius"].default_value = (0.4, 0.8, 1.0)
 
     # Kapillardocht: Vlies/Gewebe, unten nass (dunkler)
@@ -455,26 +455,77 @@ def materials():
     nt.links.new(wave.outputs["Fac"], bp.inputs["Height"])
     nt.links.new(bp.outputs["Normal"], b.inputs["Normal"])
 
-    # Substrat (Erde) – Grundfarbe mit Variation
-    m, nt, b = mat("SG_Erde", color="#2E2219", rough=0.95, spec=0.25)
+    # Substrat (Erde): dunkle Erde mit Rindenstücken und Perlitkörnern – auch auf der Schnittfläche sichtbar
+    m, nt, b = mat("SG_Erde", color="#2A1E15", rough=0.95, spec=0.25)
     tc = nt.nodes.new("ShaderNodeTexCoord")
     nz = nt.nodes.new("ShaderNodeTexNoise")
     nz.inputs["Scale"].default_value = 60
     nz.inputs["Detail"].default_value = 8
     nt.links.new(tc.outputs["Object"], nz.inputs["Vector"])
     cr = nt.nodes.new("ShaderNodeValToRGB")
-    cr.color_ramp.elements[0].color = srgb("#1E160F")
-    cr.color_ramp.elements[1].color = srgb("#4A3624")
+    cr.color_ramp.elements[0].color = srgb("#1A130D")
+    cr.color_ramp.elements[1].color = srgb("#33251A")
     nt.links.new(nz.outputs["Fac"], cr.inputs["Fac"])
-    nt.links.new(cr.outputs["Color"], b.inputs["Base Color"])
+    # Rinde/Kokos: größere Zellen, zufällig ausgewählt
+    vb = nt.nodes.new("ShaderNodeTexVoronoi")
+    vb.inputs["Scale"].default_value = 300
+    nt.links.new(tc.outputs["Object"], vb.inputs["Vector"])
+    sb = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(vb.outputs["Color"], sb.inputs["Color"])
+    rb = nt.nodes.new("ShaderNodeValToRGB")
+    rb.color_ramp.interpolation = "CONSTANT"
+    rb.color_ramp.elements[0].color = (0, 0, 0, 1)
+    rb.color_ramp.elements[1].position = 0.88
+    rb.color_ramp.elements[1].color = (1, 1, 1, 1)
+    nt.links.new(sb.outputs["Red"], rb.inputs["Fac"])
+    mb = nt.nodes.new("ShaderNodeMix")
+    mb.data_type = "RGBA"
+    mb.inputs["B"].default_value = srgb("#40291A")
+    nt.links.new(rb.outputs["Color"], mb.inputs["Factor"])
+    nt.links.new(cr.outputs["Color"], mb.inputs["A"])
+    # Perlit: kleine, helle Körner
+    vp = nt.nodes.new("ShaderNodeTexVoronoi")
+    vp.inputs["Scale"].default_value = 420
+    nt.links.new(tc.outputs["Object"], vp.inputs["Vector"])
+    sp = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(vp.outputs["Color"], sp.inputs["Color"])
+    rp = nt.nodes.new("ShaderNodeValToRGB")
+    rp.color_ramp.interpolation = "CONSTANT"
+    rp.color_ramp.elements[0].color = (0, 0, 0, 1)
+    rp.color_ramp.elements[1].position = 0.955
+    rp.color_ramp.elements[1].color = (1, 1, 1, 1)
+    nt.links.new(sp.outputs["Green"], rp.inputs["Fac"])
+    dist = nt.nodes.new("ShaderNodeMath")
+    dist.operation = "LESS_THAN"
+    dist.inputs[1].default_value = 0.42
+    nt.links.new(vp.outputs["Distance"], dist.inputs[0])
+    pm = nt.nodes.new("ShaderNodeMath")
+    pm.operation = "MULTIPLY"
+    nt.links.new(rp.outputs["Color"], pm.inputs[0])
+    nt.links.new(dist.outputs["Value"], pm.inputs[1])
+    mp = nt.nodes.new("ShaderNodeMix")
+    mp.data_type = "RGBA"
+    mp.inputs["B"].default_value = srgb("#CFCBC0")
+    nt.links.new(pm.outputs["Value"], mp.inputs["Factor"])
+    nt.links.new(mb.outputs["Result"], mp.inputs["A"])
+    nt.links.new(mp.outputs["Result"], b.inputs["Base Color"])
+    # Relief: Krümel + Körner
     vo = nt.nodes.new("ShaderNodeTexVoronoi")
     vo.inputs["Scale"].default_value = 420
     nt.links.new(tc.outputs["Object"], vo.inputs["Vector"])
+    hsum = nt.nodes.new("ShaderNodeMath")
+    hsum.operation = "MULTIPLY_ADD"
+    hsum.inputs[1].default_value = 0.6
+    nt.links.new(pm.outputs["Value"], hsum.inputs[0])
+    nt.links.new(vo.outputs["Distance"], hsum.inputs[2])
     bp = nt.nodes.new("ShaderNodeBump")
     bp.inputs["Strength"].default_value = 0.6
     bp.inputs["Distance"].default_value = 0.002
-    nt.links.new(vo.outputs["Distance"], bp.inputs["Height"])
+    nt.links.new(hsum.outputs["Value"], bp.inputs["Height"])
     nt.links.new(bp.outputs["Normal"], b.inputs["Normal"])
+
+    # Wurzeln (nur im Schnittbild sichtbar): hell, leicht durchscheinend
+    m, nt, b = mat("SG_Wurzel", color="#C9B994", rough=0.6, spec=0.35, sss=0.1, sss_scale=0.002)
 
     mat("SG_Perlit", color="#E9E6DF", rough=0.85, spec=0.3)
     m, nt, b = mat("SG_Rinde", color="#5B3C25", rough=0.8, spec=0.3)
@@ -496,8 +547,8 @@ def build_shell(col, M, parent):
     bpy.data.objects.remove(cut)
     smooth_by_angle(shell, 35)
     bv = shell.modifiers.new("Kanten", "BEVEL")
-    bv.width = 0.0008
-    bv.segments = 3
+    bv.width = 0.0012
+    bv.segments = 4
     bv.limit_method = "ANGLE"
     bv.angle_limit = math.radians(40)
     # Anzeige: klares Fenster (1,2 mm zurückgesetzt), Flüssigkeitssäule, helle Rückwand innen
@@ -687,6 +738,70 @@ def build_soil(col, M, parent):
     return soil
 
 
+CUT_FACE_Y = 0.004  # Schnittebene des Konzeptschnitts (sg_shots._cutter)
+
+
+def build_roots(col, M, parent, seed=7):
+    """Wurzelgeflecht auf der Schnittebene des Substrats (im unversehrten Kasten im Substrat verborgen).
+    Feine Wurzeln von den Pflanzen nach unten, einige bis zu den Dochten über der Trennplatte."""
+    import random
+
+    rnd = random.Random(seed)
+    top = INS["top"] - 0.022
+    bot = INS["bottom"] + INS["t"] + 0.004
+    bm = bmesh.new()
+
+    def tube(pts, r0, r1, n=6):
+        prev = None
+        L = len(pts)
+        for k, p in enumerate(pts):
+            tan = (pts[min(k + 1, L - 1)] - pts[max(k - 1, 0)]).normalized()
+            ref = Vector((0, 1, 0)) if abs(tan.y) < 0.9 else Vector((1, 0, 0))
+            a_ = tan.cross(ref).normalized()
+            b_ = tan.cross(a_).normalized()
+            r = r0 + (r1 - r0) * k / max(1, L - 1)
+            ring = [bm.verts.new(p + r * (math.cos(2 * math.pi * i / n) * a_ + math.sin(2 * math.pi * i / n) * b_)) for i in range(n)]
+            if prev:
+                for i in range(n):
+                    bm.faces.new((prev[i], prev[(i + 1) % n], ring[(i + 1) % n], ring[i]))
+            prev = ring
+
+    def grow(p, d, r, depth, xmin, xmax):
+        pts = [p]
+        steps = rnd.randint(6, 12) if depth == 0 else rnd.randint(3, 7)
+        for _ in range(steps):
+            d = Vector((d.x + rnd.uniform(-0.35, 0.35), 0, d.z + rnd.uniform(-0.15, 0.1))).normalized()
+            if d.z > -0.2:
+                d.z = -0.2
+                d.normalize()
+            q = pts[-1] + d * rnd.uniform(0.008, 0.014)
+            q.x = min(max(q.x, xmin), xmax)
+            if q.z < bot:
+                q.z = bot
+                pts.append(q)
+                break
+            pts.append(q)
+        y = CUT_FACE_Y + r * 0.25
+        pts = [Vector((v.x, y + rnd.uniform(-0.0002, 0.0002), v.z)) for v in pts]
+        tube(pts, r, r * 0.45)
+        if depth < 2:
+            for k in range(1, len(pts) - 1):
+                if rnd.random() < 0.25:
+                    side = 1 if rnd.random() < 0.5 else -1
+                    grow(pts[k], Vector((side * 0.9, 0, -0.5)), r * 0.6, depth + 1, xmin, xmax)
+
+    for x0, x1 in ((-0.355, -0.04), (0.04, 0.355)):
+        for k in range(6):
+            x = rnd.uniform(x0 + 0.01, x1 - 0.01)
+            grow(Vector((x, 0, top)), Vector((rnd.uniform(-0.3, 0.3), 0, -1)), rnd.uniform(0.0011, 0.0017), 0, x0 + 0.003, x1 - 0.003)
+        # Wurzeln, die den Docht suchen
+        wx = math.copysign(WICK["x"], x0)
+        for k in range(3):
+            grow(Vector((wx + rnd.uniform(-0.03, 0.03), 0, top - 0.01)), Vector((0, 0, -1)), 0.0012, 1, wx - 0.03, wx + 0.03)
+    ob = obj_from_bm("SG_Wurzeln", bm, col, M["SG_Wurzel"], parent=parent)
+    return ob
+
+
 def scatter_substrate(col, M, parent, soil, seed=3):
     """Perlit-Körner und Rindenstücke auf der Oberfläche (Partikelsystem, Instanzen)."""
     pcol = coll("SG_Substrat_Instanzen", col)
@@ -868,6 +983,7 @@ def build(plants=None):
     build_wicks(cols["Dochte"], M, G["Dochte"])
     build_insert(cols["Pflanzeinsatz"], M, G["Pflanzeinsatz"])
     soil = build_soil(cols["Pflanzeinsatz"], M, G["Pflanzeinsatz"])
+    build_roots(cols["Pflanzeinsatz"], M, G["Pflanzeinsatz"])
     scatter_substrate(cols["Pflanzeinsatz"], M, G["Pflanzeinsatz"], soil)
     build_mount(cols["Halterungssystem"], M, G["Halterungssystem"])
     if plants:

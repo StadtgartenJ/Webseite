@@ -6,9 +6,9 @@ import { WaitlistLink } from "@/components/WaitlistLink";
 import { ScrollFloat } from "@/components/ScrollFloat";
 import { StickyCta } from "@/components/StickyCta";
 import { ProductViewer } from "@/components/explorer/ProductViewer";
-import { TeardownFilm } from "@/components/explorer/TeardownFilm";
 
-const PORTRAIT = { widths: [640, 900, 1122], width: 1122, height: 1402 };
+// v7: alle Produktbilder aus dem Blender-Mastermodell (blender/v6), siehe docs/stadtgarden-master-design.md
+const SQUARE = { widths: [640, 900, 1200], width: 1200, height: 1200 };
 
 export default function Home() {
   return (
@@ -19,15 +19,15 @@ export default function Home() {
         <section id="hero" className="hero" aria-labelledby="hero-title">
           <div className="hero__media">
             <Picture
-              name="hero-wide"
-              widths={[960, 1440, 1672]}
-              width={1672}
-              height={941}
+              name="v7-hero"
+              widths={[960, 1440, 1920, 2560]}
+              width={2560}
+              height={1440}
               sizes="100vw"
-              alt="Weißer Pflanzkasten mit Efeutute hängt an einer Spannstange vor einem Altbaufenster, warmes Abendlicht fällt auf die Fassade"
+              alt="Weißer Pflanzkasten mit Efeutute und Pfennigkraut steht auf dem Steinsims eines Altbaufensters, hinter ihm die Spannstange in der Laibung, warmes Nachmittagslicht mit Blattschatten auf der Fassade"
               className="hero__img"
               priority
-              art={{ name: "hero-phone", widths: [640, 960, 1260], media: "(max-width: 639px)", sizes: "100vw", width: 1260, height: 941 }}
+              art={{ name: "v7-hero-phone", widths: [640, 960, 1280, 1600], media: "(max-width: 639px)", sizes: "100vw", width: 1600, height: 1200 }}
             />
           </div>
           <div className="wrap hero__content">
@@ -77,14 +77,16 @@ export default function Home() {
                 Nicht jeder hat einen Balkon. Aber fast jedes Zuhause hat ein Fenster. Stadtgarden macht aus diesem Platz
                 etwas Besonderes – mit einem Pflanzkasten, der genauso schön sein soll wie die Pflanzen darin.
               </p>
-              <WaitlistLink className="btn btn--lime" inline />
+              <WaitlistLink className="btn btn--forest" inline />
             </div>
             <ScrollFloat className="reveal__product">
               <Picture
-                name="studio-float"
-                {...PORTRAIT}
+                name="v7-studio"
+                widths={[640, 900, 1200, 1800]}
+                width={1800}
+                height={1200}
                 sizes="(min-width: 1024px) 66vw, 110vw"
-                alt="Der weiße Pflanzkasten mit Efeutute und feinen Hängepflanzen, freigestellt vor sattgrünem Hintergrund"
+                alt="Der weiße Pflanzkasten mit Spannstange und zwei Bügeln steht im Studio vor salbeigrünem Hintergrund, bepflanzt mit Efeutute und Pfennigkraut, deren Ranken über die Kante hängen"
                 className="reveal__img"
               />
             </ScrollFloat>
@@ -101,10 +103,12 @@ export default function Home() {
             <article className="benefit benefit--garden">
               <div className="benefit__media">
                 <Picture
-                  name="window-plants"
-                  {...PORTRAIT}
+                  name="v7-seite"
+                  widths={[640, 900, 1200, 1624]}
+                  width={1624}
+                  height={1900}
                   sizes="(min-width: 1024px) 50vw, 100vw"
-                  alt="Pflanzkasten voller Efeutute und Pfennigkraut vor einem sonnigen Fenster, dahinter eine Altbaufassade"
+                  alt="Seitlicher Blick in die Fensterlaibung: Der Pflanzkasten steht auf dem Sims, Ranken hängen über die Kante"
                   className="benefit__img"
                 />
               </div>
@@ -124,10 +128,12 @@ export default function Home() {
               </div>
               <div className="benefit__media">
                 <Picture
-                  name="mount-detail"
-                  {...PORTRAIT}
+                  name="v7-montage"
+                  widths={[640, 900, 1200, 1600]}
+                  width={1600}
+                  height={1120}
                   sizes="(min-width: 1024px) 58vw, 100vw"
-                  alt="Nahaufnahme der Halterung: Ein weißes Band läuft über die Spannstange, deren rundes Endstück an der Laibung anliegt"
+                  alt="Nahaufnahme der Halterung: Hinter dem Kasten liegt die weiße Spannstange in der Laibung, ein breiter Bügel läuft über die Stange, die Endkappe drückt gegen die Laibung"
                   className="benefit__img"
                 />
               </div>
@@ -136,21 +142,12 @@ export default function Home() {
             <article className="benefit benefit--water">
               <div className="benefit__media">
                 <Picture
-                  name="cutaway"
-                  {...PORTRAIT}
+                  name="v7-anzeige"
+                  {...SQUARE}
                   sizes="(min-width: 1024px) 46vw, 100vw"
-                  alt="Konzeptschnitt durch den Kasten: Pflanzeinsatz mit Erde, gelochte Platte und zwei Kapillarelemente im Wasserreservoir"
+                  alt="Nahaufnahme der mittig in die Schale eingelassenen Wasserstandsanzeige mit gedämpft aquafarbenem Wasser"
                   className="benefit__img"
                 />
-                <div className="benefit__inset">
-                  <Picture
-                    name="macro-gauge"
-                    {...PORTRAIT}
-                    sizes="(min-width: 1024px) 16vw, 36vw"
-                    alt="Das schmale Sichtfenster vorne am Kasten, darin blaues Wasser"
-                    className="benefit__img"
-                  />
-                </div>
               </div>
               <div className="benefit__copy">
                 <h3>Weniger gießen. Mehr genießen.</h3>
@@ -164,21 +161,77 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 04 · Technik: Vertrauen und Neugier */}
+        {/* 04 · Technik: ein zusammenhängender Ablauf – Schnittbild, Viewer, Details auf Wunsch */}
         <section id="so-funktionierts" className="inside" aria-labelledby="inside-title">
           <div className="wrap">
             <div className="inside__head">
               <h2 id="inside-title" className="display-2">
-                <span className="l">Schön von außen.</span> <span className="l">Durchdacht von innen.</span>
+                <span className="l">Sechs Teile.</span> <span className="l">Ein Prinzip.</span>
               </h2>
               <p>
                 Hinter der klaren Form steckt eine einfache Idee: Wasser speichern und über Kapillarelemente zu den Wurzeln
                 leiten. Entdecke, wie unser Konzept aufgebaut ist.
               </p>
             </div>
-            <TeardownFilm />
-            <p className="inside__explore">Jetzt selbst erkunden: drehen, zoomen, auseinanderziehen.</p>
+
+            <div className="inside__story">
+              <figure className="inside__cut">
+                <Picture
+                  name="v7-schnitt"
+                  widths={[800, 1200, 1600, 1920]}
+                  width={1920}
+                  height={1200}
+                  sizes="(min-width: 1024px) 62vw, 100vw"
+                  alt="Konzeptschnitt durch den Pflanzkasten: oben der schwarze Pflanzeinsatz mit Substrat und Wurzeln, darunter die gelochte Trennplatte, zwei Kapillardochte und das Wasserreservoir; in der Mitte die Wasserstandsanzeige"
+                  className="inside__img"
+                />
+                <figcaption className="inside__badge">Konzeptionelle Darstellung<span className="inside__badge-more"> · Produkt in Entwicklung</span></figcaption>
+              </figure>
+              <div className="inside__flow">
+                <h3>Der geplante Wasserweg.</h3>
+                <ol>
+                  <li>Unten speichert das Reservoir das Wasser.</li>
+                  <li>Zwei Kapillardochte sollen es nach oben leiten.</li>
+                  <li>Das Substrat nimmt die Feuchtigkeit auf.</li>
+                </ol>
+                <p className="inside__note">
+                  Wie gut das im Alltag funktioniert, hängt auch von Erde, Pflanzen und Standort ab und muss sich in Tests
+                  noch zeigen.
+                </p>
+              </div>
+            </div>
+
             <ProductViewer />
+
+            <details className="inside__more">
+              <summary>Technik im Detail entdecken</summary>
+              <ol className="inside__parts">
+                <li>
+                  <b>Außenschale</b> Weich gerundete Kapsel in Warmweiß. Vorne mittig eingelassen: das schmale Fenster für
+                  den Wasserstand.
+                </li>
+                <li>
+                  <b>Pflanzeinsatz</b> Herausnehmbar, mit Platz für Substrat und Wurzeln.
+                </li>
+                <li>
+                  <b>Trennplatte</b> Gelocht, trennt Erde und Wasser.
+                </li>
+                <li>
+                  <b>Kapillarelemente</b> Zwei Dochte sollen Feuchtigkeit aus dem Reservoir nach oben leiten.
+                </li>
+                <li>
+                  <b>Wasserreservoir</b> Ein integrierter Speicher für die geplante passive Wasserversorgung.
+                </li>
+                <li>
+                  <b>Halterung</b> Der Kasten steht auf dem Außensims. Eine Spannstange hinter dem oberen Kastenrand und
+                  zwei breite Bügel sollen ihn in Position halten – ganz ohne Bohren.
+                </li>
+              </ol>
+              <p className="inside__note">
+                Alles hier ist ein Konzept. Haltekraft, Eignung für verschiedene Fenster und das Verhalten bei Wind und
+                Wetter werden vor einem Verkauf geprüft.
+              </p>
+            </details>
           </div>
         </section>
 
@@ -186,12 +239,12 @@ export default function Home() {
         <section id="alltag" className="city" aria-labelledby="city-title">
           <div className="city__media">
             <Picture
-              name="facade"
-              widths={[960, 1536]}
-              width={1536}
-              height={1024}
+              name="v7-stadt"
+              widths={[960, 1600, 2400]}
+              width={2400}
+              height={1600}
               sizes="100vw"
-              alt="Helle Pariser Altbaufassade mit Laternen und Bäumen; an einem Fenster hängt der weiße Pflanzkasten mit Efeutute"
+              alt="Helle Altbaufassade mit drei Fenstern im Nachmittagslicht; auf dem Sims des mittleren Fensters steht der weiße Pflanzkasten"
               className="city__img"
             />
           </div>
@@ -210,12 +263,12 @@ export default function Home() {
           <div className="wrap final__grid">
             <figure className="final__media">
               <Picture
-                name="produkt-gruen"
-                widths={[800, 1200, 1536]}
-                width={1536}
-                height={1024}
+                name="v7-nah"
+                widths={[800, 1200, 1600, 2000]}
+                width={2000}
+                height={1500}
                 sizes="(min-width: 1024px) 42vw, 100vw"
-                alt="Der weiße Pflanzkasten mit Efeutute und Pfennigkraut an einem Fenster mit dunkelgrüner Fassade"
+                alt="Der weiße Pflanzkasten von rechts vorne: auf dem Fenstersims, voller Grün, im warmen Sonnenlicht"
                 className="final__img"
               />
             </figure>

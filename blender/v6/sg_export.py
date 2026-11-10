@@ -8,7 +8,7 @@ Vereinfachungen gegenüber dem Mastermodell (gleiche Geometrie und Proportionen)
 - keine Perlit-/Rinden-Partikel, kein Relief-Displacement der Erde
 - Blätter und Stängel der Ranken reduziert (Decimate)
 - Materialien als glTF-PBR (Farbe, Rauheit, Normalen, Alpha); Mikrostrukturen aus Prozedur-Knoten entfallen
-- Blatt-Atlanten: Farbkorrektur wie im Master fest eingerechnet, Deckkraft im Alpha-Kanal
+- Blattatlas aus sg_leaftex.py (1024 px), Blattumriss als Geometrie (kein Alpha); Wurzeln entfallen
 Knotennamen: GRP_<Gruppe> (für die Explosion) und SG_<Bauteil>.
 """
 import colorsys
@@ -61,32 +61,15 @@ def _tint(rgb, hue=0.03, sat=1.25, val=0.6):
 
 
 def prepare_textures(size=1024):
+    """Blattatlas (sg_leaftex.py) für das Web auf 1024 px verkleinern."""
     os.makedirs(TEX_OUT, exist_ok=True)
-    A = sg_plants.ASSETS
-    pt = os.path.join(A, "periwinkle_plant_4k.blend", "textures")
-    at = os.path.join(A, "anthurium_botany_01_4k.blend", "textures")
     from PIL import Image
 
-    def rgb(path):
-        return np.asarray(Image.open(path).convert("RGB")).astype(np.float32) / 255
-
-    def grey(path):
-        return np.asarray(Image.open(path).convert("L")).astype(np.float32) / 255
-
     out = {}
-    d = rgb(os.path.join(pt, "periwinkle_plant_diff_4k.jpg"))
-    d = _tint(d, hue=0.02, sat=1.12, val=0.82)
-    a = grey(os.path.join(pt, "periwinkle_plant_opacity_4k.png"))
-    out["leaf_col"] = _save_png(np.dstack([d, a]), os.path.join(TEX_OUT, "blatt_farbe.png"), size)
-    out["leaf_nor"] = _save_png(_img_array(os.path.join(pt, "periwinkle_plant_nor_gl_4k.exr"))[..., :3], os.path.join(TEX_OUT, "blatt_normal.png"), size)
-    r = _img_array(os.path.join(pt, "periwinkle_plant_rough_4k.exr"))[..., 0]
-    out["leaf_rgh"] = _save_png(np.dstack([r, r, r]), os.path.join(TEX_OUT, "blatt_rauheit.png"), size)
-    d = rgb(os.path.join(at, "anthurium_botany_01_diff_4k.jpg"))
-    a = grey(os.path.join(at, "anthurium_botany_01_alpha_4k.png"))
-    out["anth_col"] = _save_png(np.dstack([d, a]), os.path.join(TEX_OUT, "anthurium_farbe.png"), size)
-    out["anth_nor"] = _save_png(_img_array(os.path.join(at, "anthurium_botany_01_nor_gl_4k.exr"))[..., :3], os.path.join(TEX_OUT, "anthurium_normal.png"), size)
-    r = _img_array(os.path.join(at, "anthurium_botany_01_rough_4k.exr"))[..., 0]
-    out["anth_rgh"] = _save_png(np.dstack([r, r, r]), os.path.join(TEX_OUT, "anthurium_rauheit.png"), size)
+    for key, name in (("leaf_col", "blatt_atlas_farbe.png"), ("leaf_nor", "blatt_atlas_normal.png"), ("leaf_rgh", "blatt_atlas_rauheit.png")):
+        dst = os.path.join(TEX_OUT, name)
+        Image.open(os.path.join(sg_plants.TEX, name)).convert("RGB").resize((size, size), Image.LANCZOS).save(dst)
+        out[key] = dst
     return out
 
 
@@ -129,7 +112,10 @@ def simplify_for_web(tex):
     for ob in list(bpy.data.objects):
         if ob.name.startswith(("_perlit", "_rinde")) or ob.type in ("LIGHT", "CAMERA") or ob.name.startswith(("Studio", "Kamera")):
             bpy.data.objects.remove(ob)
-    for name, ratio in (("SG_Pflanze_Ranken_Blaetter", 0.45), ("SG_Pflanze_Ranken_Staengel", 0.4), ("SG_Pflanzeinsatz", 0.6), ("SG_Reservoir", 0.6), ("SG_Wasser", 0.5)):
+    root = bpy.data.objects.get("SG_Wurzeln")  # nur für das Schnittbild
+    if root:
+        bpy.data.objects.remove(root)
+    for name, ratio in (("SG_Pflanze_Ranken_Blaetter", 0.5), ("SG_Pflanze_Ranken_Staengel", 0.35), ("SG_Pflanze_Krone_Pfennigkraut", 0.35), ("SG_Pflanze_Krone_Efeutute", 0.6), ("SG_Pflanzeinsatz", 0.6), ("SG_Reservoir", 0.6), ("SG_Wasser", 0.5)):
         ob = bpy.data.objects.get(name)
         if ob:
             d = ob.modifiers.new("Web", "DECIMATE")
@@ -142,17 +128,14 @@ def simplify_for_web(tex):
                 m.levels = 1 if ob.name.startswith("SG_Pflanze_Krone") else 0
             if m.type == "BEVEL":
                 m.segments = 2
-    leaf = web_material("SG_Blatt", tex["leaf_col"], tex["leaf_nor"], tex["leaf_rgh"])
-    anth = web_material("SG_Anthurium", tex["anth_col"], tex["anth_nor"], tex["anth_rgh"])
+    old = bpy.data.materials.get("SG_Blatt")
+    if old:
+        old.name = "SG_Blatt_Master"
+    leaf = web_material("SG_Blatt", tex["leaf_col"], tex["leaf_nor"], tex["leaf_rgh"], alpha=False)
     for ob in bpy.data.objects:
-        if ob.type != "MESH":
-            continue
-        if ob.name.startswith("SG_Pflanze_Ranken"):
+        if ob.type == "MESH" and ob.name.startswith("SG_Pflanze_"):
             ob.data.materials.clear()
             ob.data.materials.append(leaf)
-        elif ob.name.startswith("SG_Pflanze_Krone"):
-            ob.data.materials.clear()
-            ob.data.materials.append(anth)
 
 
 def bake_to_viewer_units(scale=3.0):

@@ -47,26 +47,26 @@ components/
   WaitlistLink.tsx       einheitlicher CTA „Auf die Warteliste“, fokussiert das nächste E-Mail-Feld
   ScrollFloat.tsx        schwebendes Produkt im Reveal (scrollgekoppelt)
   StickyCta.tsx          Handy-Leiste
-  TechStory.tsx          v4-Bildgeschichte (nicht mehr eingebunden)
   Picture.tsx            AVIF/WebP mit Art-Direction (eigener Handy-Ausschnitt)
   explorer/ProductViewer.tsx  3D-Viewer: Lazy Loading, Standbild, Fallbacks, Bedienung
-  explorer/PlanterScene.tsx   Szene (React Three Fiber), lädt public/models/stadtgarden.glb
-  explorer/TeardownFilm.tsx     Scroll-Film aus der Blender-Bildsequenz (v6)
-  explorer/ProductExplorer.tsx  v4-Scroll-Film (nicht eingebunden)
-blender/v6/              Mastermodell v6 (Skripte, .blend, Renderings); blender/stadtgarden_v5.py = Vorgänger
-scripts/build-model.sh   Blender → GLB → gltf-transform (Meshopt, WebP)
+  explorer/PlanterScene.tsx   Szene (React Three Fiber), lädt public/models/stadtgarden-v7.glb
+blender/v7/stadtgarden_v7.blend  eigenständige Masterdatei (fünf Szenen, Texturen eingebettet)
+blender/v6/              Bauskripte (Produkt, Pflanzen, Blattatlas, Fensterszenen, Kameras); blender/stadtgarden_v5.py = Vorgänger
+scripts/build-model-v6.sh  Blender → GLB → gltf-transform (Meshopt, WebP); npm run model
+scripts/optimize-images-v7.mjs  Bildmaster → AVIF/WebP; npm run images
 lib/waitlist.ts          Client-Adapter zum Wartelisten-Endpunkt
 waitlist-worker/         serverseitiger Endpunkt (Cloudflare Worker)
-assets-src/v2/           Original-Bilder; npm run images erzeugt public/images/
-docs/bilder.md           Bildinventar, fehlende Motive, fertige Prompts
+assets-src/v7/           Bildmaster (JPEG q95 aus den Cycles-Renderings)
+docs/stadtgarden-master-design.md  verbindliche Produkt- und Bildspezifikation
+docs/bilder.md           Bildprüfung (KEEP/CORRECT/REPLACE) und Bildregeln
 ```
 
-## Technik-Abschnitt und 3D (v6)
+## Technik-Abschnitt und 3D (v7)
 
-- **Blender-Mastermodell** in `blender/v6/` (Skripte) → `blender/v6/stadtgarden_v6.blend`. Alle Bauteile als eigene Objekte, Teardown-Animation, Studio, Kameras. Pflanzen aus CC0-Scans von Poly Haven (`blender/assets/`, nicht im Repo).
-- **Scroll-Film**: vorgerenderte Cycles-Bildsequenz (`public/film/`), per GSAP ScrollTrigger Bild für Bild gezeichnet (`components/explorer/TeardownFilm.tsx`).
-- **Interaktiver Viewer**: dasselbe Modell als optimiertes GLB (`public/models/stadtgarden-v6.glb`), drehen, zoomen, vier Ansichten (`PlanterScene.tsx`, `ProductViewer.tsx`). Lädt erst in der Nähe des Abschnitts; Standbild davor, Rendering ohne WebGL.
-- Neu bauen: `bash scripts/build-model-v6.sh` (GLB) und `python3 scripts/build-film.py <PNG-Ordner>` (Film). Details, Zeiten und Lizenzen: `docs/3d-rendering-report.md`.
+- **Blender-Masterdatei** `blender/v7/stadtgarden_v7.blend`: öffnen, Szene wählen (Studio, Schnitt, Explosion, Fenster, Fassade), F12 – ohne Skripte und ohne externe Dateien. Gebaut von den Skripten in `blender/v6/` (`sg_master7.build()`). Bepflanzung (Efeutute, Pfennigkraut) und Blattatlas sind eigene Arbeit. `blender/v6/stadtgarden_v6.blend` ist der Vorgänger.
+- **Alle Produktbilder** sind Cycles-Renderings aus demselben Modell (`blender/v6/sg_scene.py`, `sg_shots.py`). Der angeheftete Scroll-Film ist seit v7 entfernt; der Abschnitt zeigt Schnittbild, Wasserweg in drei Schritten, den Viewer und aufklappbare Details.
+- **Interaktiver Viewer**: dasselbe Modell als optimiertes GLB (`public/models/stadtgarden-v7.glb`), drehen, zoomen, vier Ansichten (`PlanterScene.tsx`, `ProductViewer.tsx`). Lädt erst in der Nähe des Abschnitts; Standbild davor, Rendering ohne WebGL.
+- Neu bauen: `npm run model` (GLB) und `npm run images` (Bilder). Details, Zeiten und Lizenzen: `docs/3d-rendering-report.md`.
 
 ## Weitere Dokumente
 
@@ -102,5 +102,5 @@ Keine Angaben zu Preis, Termin, Maßen, Tagen ohne Gießen, Wetter- oder Absturz
 - **UI/UX Pro Max:** Storytelling-Muster mit CTA nach jedem Argument und großer Schluss-CTA, sichtbare Formular-Labels, 44-px-Klickflächen (Formular 64 px), AVIF/WebP mit festen Maßen gegen Layout-Sprünge, progressive Offenlegung im 3D-Bereich. Die vorgeschlagene Farbe/Schrift (Grau-Gold, Cinzel) passte nicht zum Briefing und wurde verworfen.
 - **Taste:** Seitentyp „product“, Fotos führen, das Produkt in jedem Abschnitt in einem anderen Bild, ein Auftritt beim Laden, keine Fade-ins pro Abschnitt. `copy-lint` meldet die vielen Zwei-Satz-Überschriften („X. Y.“) als Stilmittel-Häufung; sie sind vorgegebener Kampagnentext und bleiben bewusst.
 - **Impeccable:** Kontraste gemessen (Text auf Moos ≥ 4,9 : 1 an der hellsten Stelle hinter dem Text, Lime/Wald 9 : 1, Elfenbein-Text auf Wald 8,4 : 1, Platzhalter 4,6 : 1), gestaltete Browserflächen (Markierung in Lime, Fokusringe), alle Formularzustände geprüft.
-- **Emil Kowalski:** ease-out für Auftritte, Buttons `scale(0.97)` beim Drücken, Hover nur bei feinem Zeiger, unterbrechbare gedämpfte Bewegungen im 3D-Modell, Pause-Knopf für die Wasserweg-Schleife, sanftes Scrollen zum Formular nur ohne `prefers-reduced-motion`. Im Scroll-Film: Zweck „Erklärung“, Bewegung im Bild mit ease-in-out, Beschriftungen zeichnen erst die Linie und heben dann den Text.
+- **Emil Kowalski:** ease-out für Auftritte, Buttons `scale(0.97)` beim Drücken, Hover nur bei feinem Zeiger, unterbrechbare gedämpfte Bewegungen im 3D-Modell, Pause-Knopf für die Wasserweg-Schleife, sanftes Scrollen zum Formular nur ohne `prefers-reduced-motion`.
 - **GSAP (offizielle Skills):** `useGSAP` mit Scope und automatischem Aufräumen, ScrollTrigger nur auf der Timeline, `gsap.matchMedia` für Bildschirmgrößen und reduzierte Bewegung, keine Marker im Code.

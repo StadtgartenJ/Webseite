@@ -79,13 +79,13 @@ const WATER_TOP = 0.198;
 const WICK_X = 0.615;
 const WICK = { w: 0.15, bottom: 0.036, top: 0.45, z: 0, th: 0.009 };
 const SHAFT = { x: 1.02, z: -0.04, r: 0.045, bottom: 0.14, top: 0.83 };
-const ROD = { y: 0.984, z: -0.41, r: 0.0375 };
+const ROD = { y: 0.879, z: -0.41, r: 0.0375 }; // hinter dem oberen Kastenbereich (Spezifikation 5)
 const HOOK_X = 0.78;
 const STRAP = { w: 0.18, th: 0.012 };
 const WALL_INNER = 1.67;
 
 const PRESETS: Record<Mode, { pos: [number, number, number]; target: [number, number, number] }> = {
-  produkt: { pos: [2.5, 1.05, 4.9], target: [0, 0, 0] },
+  produkt: { pos: [2.15, 0.95, 4.25], target: [0, 0, 0] },
   explosion: { pos: [3.9, 2.0, 7.8], target: [0, 0.3, 0] },
   wasser: { pos: [0.9, 0.7, 4.5], target: [0, 0.1, 0] },
   schnitt: { pos: [1.7, 1.05, 4.8], target: [0, 0.12, 0] },
@@ -127,7 +127,7 @@ function useDamped(target: number, lambda: number, reduced: boolean) {
 }
 
 // ── Modell (GLB aus blender/v6/sg_export.py) und Materialien ──────────────
-export const MODEL_URL = "/models/stadtgarden-v6.glb";
+export const MODEL_URL = "/models/stadtgarden-v7.glb";
 
 type Asset = {
   nodes: Record<string, THREE.Object3D>;
@@ -167,7 +167,7 @@ function buildMaterials(src: Record<string, THREE.Material>, clip: THREE.Plane, 
     return m;
   };
   const shell = std("SG_Kunststoff_Weiss", { color: "#f8f7f3", roughness: 0.42, clearcoat: 0.1, clearcoatRoughness: 0.3, envMapIntensity: 1.0 });
-  const gaugeWater = std("SG_Anzeige_Fluessigkeit", { color: "#2b8fcb", emissive: "#1f6688", emissiveIntensity: 0.15, roughness: 0.15 });
+  const gaugeWater = std("SG_Anzeige_Fluessigkeit", { color: "#6FAFAA", emissive: "#000000", emissiveIntensity: 0, roughness: 0.2 });
   gaugeWater.userData.keepEmissive = true;
   return {
     shell,
@@ -180,11 +180,11 @@ function buildMaterials(src: Record<string, THREE.Material>, clip: THREE.Plane, 
     plate: std("SG_Kunststoff_Platte", { color: "#e7e4dc", roughness: 0.5 }),
     wick: std("SG_Docht", { color: "#ece7da", roughness: 0.95, sheen: 0.5, sheenRoughness: 0.5, sheenColor: new THREE.Color("#ffffff") }),
     reservoir: std("SG_Kunststoff_Klar", { color: "#eef6f7", roughness: 0.08, transparent: true, opacity: 0.28, depthWrite: false }),
-    water: std("SG_Wasser", { color: "#7cc3d3", roughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false }),
+    water: std("SG_Wasser", { color: "#B7DCD7", roughness: 0.08, transparent: true, opacity: 0.5, depthWrite: false }),
     gauge: std("SG_Fenster", { color: "#ffffff", roughness: 0.05, transparent: true, opacity: 0.2, depthWrite: false }),
     gaugeWater,
-    leaf: leafy("SG_Blatt", 1.25),
-    anth: leafy("SG_Anthurium", 1.75),
+    leaf: leafy("SG_Blatt", 1.1),
+    anth: leafy("SG_Blatt", 1.1),
   };
 }
 
@@ -496,7 +496,7 @@ function Wicks() {
   const manual = s.driver === "manual";
   const wet = useDamped(manual && s.mode === "wasser" ? 1 : 0, 5, s.reduced);
   const dry = useMemo(() => mats.wick.color.clone(), [mats]);
-  const wetC = useMemo(() => new THREE.Color("#b3d3e0"), []);
+  const wetC = useMemo(() => new THREE.Color("#BFDDD8"), []);
   useFrame(() => {
     mats.wick.color.copy(dry).lerp(wetC, manual ? wet.current : s.film.wet);
   });
@@ -615,7 +615,7 @@ function WaterFlow() {
   }, [count]);
   const geo = useMemo(() => new THREE.SphereGeometry(0.014, 10, 8), []);
   const mat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#4aa8d3", emissive: "#1f86b8", emissiveIntensity: 0.6, roughness: 0.2 }),
+    () => new THREE.MeshStandardMaterial({ color: "#7FBDB7", emissive: "#3E7F7A", emissiveIntensity: 0.35, roughness: 0.25 }),
     [],
   );
   const o = useMemo(() => new THREE.Object3D(), []);
@@ -722,7 +722,8 @@ function Surroundings() {
           <boxGeometry args={[wallW, 2.9, 1.1]} />
         </mesh>
       ))}
-      <mesh position={[0, -0.12, -0.15]} material={mats.stone}>
+      {/* Außensims: der Kasten steht darauf (Oberkante = Kastenboden, Spezifikation 5) */}
+      <mesh position={[0, -0.03, -0.15]} material={mats.stone}>
         <boxGeometry args={[2 * WALL_INNER + 0.5, 0.06, 1.25]} />
       </mesh>
       {/* Fenster hinter dem Kasten */}
@@ -730,9 +731,9 @@ function Surroundings() {
         <planeGeometry args={[2 * WALL_INNER, 2.1]} />
       </mesh>
       {[
-        [0, -0.12 + 0.07, -0.76, 2 * WALL_INNER, 0.08, 0.06],
-        [0, 1.25, -0.76, 2 * WALL_INNER, 0.07, 0.06],
-        [0, 0.6, -0.76, 0.07, 1.4, 0.06],
+        [0, 0.04, -0.76, 2 * WALL_INNER, 0.08, 0.06],
+        // kein Kämpfer auf Stangenhöhe: sonst liest sich der Rahmen wie eine zweite Stange
+        [0, 0.85, -0.76, 0.07, 2.1, 0.06],
       ].map(([x, y, z, w, h, d], i) => (
         <mesh key={i} position={[x, y, z]} material={mats.frame}>
           <boxGeometry args={[w, h, d]} />
@@ -980,9 +981,10 @@ function Shadows() {
   });
   if (s.driver === "manual" && s.mode === "montage") return null;
   return (
+    // Schatten direkt unter dem Boden; wandert beim Auseinanderziehen mit der Schale nach unten
     <group ref={g}>
       <ContactShadows
-        position={[0, -1.32, 0]}
+        position={[0, MODEL_Y - 0.005, 0]}
         scale={7}
         far={3.2}
         blur={2.6}

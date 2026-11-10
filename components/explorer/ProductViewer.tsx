@@ -174,12 +174,12 @@ export function ProductViewer() {
         >
           {load === "nowebgl" || load === "failed" ? (
             <div className="explorer__fallback-photo">
-              {/* Cycles-Rendering des Blender-Mastermodells v6 */}
+              {/* Cycles-Rendering des Blender-Mastermodells (v7, gleiche Geometrie wie das 3D-Modell) */}
               <picture>
-                <source type="image/webp" srcSet="/images/v6-explosion-900.webp 900w, /images/v6-explosion-1600.webp 1600w" sizes="(min-width: 1024px) 80vw, 100vw" />
+                <source type="image/webp" srcSet="/images/v7-explosion-900.webp 900w, /images/v7-explosion-1600.webp 1600w" sizes="(min-width: 1024px) 80vw, 100vw" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/images/v6-explosion-1600.webp"
+                  src="/images/v7-explosion-1600.webp"
                   width={1600}
                   height={1000}
                   alt="Explosionsansicht des Pflanzkastens: oben Spannstange mit zwei Bügeln, darunter Pflanzeinsatz mit Pflanzen, gelochte Trennplatte mit zwei Dochten, Wasserreservoir und Außenschale mit Sichtfenster"
